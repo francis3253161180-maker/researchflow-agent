@@ -1,5 +1,7 @@
 # ResearchFlow Agent
 
+[![Test ResearchFlow](https://github.com/francis3253161180-maker/researchflow-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/francis3253161180-maker/researchflow-agent/actions/workflows/ci.yml)
+
 > 面向科研文档的本地可部署 Agent / RAG 服务：真实文档导入、混合检索、可追溯引用、校验与重试、运行轨迹持久化。
 
 ResearchFlow 不是只调用一次模型的聊天壳。它把文档解析、知识库检索、工具路由、受限回答、引用校验、失败重试和运行记录组合成一个可测试的服务。项目以 **FastAPI + LangGraph + SQLite** 实现；默认可完全离线运行，也可通过 `DEEPSEEK_API_KEY` 启用真实 LLM 生成。
@@ -49,7 +51,7 @@ uvicorn app.main:app --reload
 
 ### 选择检索与模型后端
 
-复制 `.env.example` 为 `.env`，再按需要配置。不要把 `.env`、密钥或真实私有文档提交到 Git。
+复制 `.env.example` 为 `.env`，再按需要配置。应用启动时会读取当前项目目录的 `.env`，但操作系统/容器传入的环境变量优先级更高。不要把 `.env`、密钥或真实私有文档提交到 Git。
 
 ```dotenv
 # 开发/回归测试：可完全离线
@@ -101,7 +103,7 @@ python scripts/run_eval.py --embedding-provider hash
 python scripts/run_eval.py --embedding-provider fastembed
 ```
 
-当前本机结果：10 项测试全部通过；8 条**受控回归样例**在两种向量后端下均完成检索命中、引用生成和校验（8/8）。该数据集验证的是项目链路和回归行为，样例内容来自本项目功能说明，**不代表真实企业语料上的准确率、召回率或幻觉率**。后续迭代应以人工标注的公开论文/业务文档评测集补充 Recall@K、nDCG、引用忠实度和失败类型分析。
+当前本机结果：12 项测试全部通过；8 条**受控回归样例**在两种向量后端下均完成检索命中、引用生成和校验（8/8）。GitHub Actions 会在 push/PR 时运行测试并从 Dockerfile 构建镜像。该数据集验证的是项目链路和回归行为，样例内容来自本项目功能说明，**不代表真实企业语料上的准确率、召回率或幻觉率**。后续迭代应以人工标注的公开论文/业务文档评测集补充 Recall@K、nDCG、引用忠实度和失败类型分析。
 
 ## 项目结构
 

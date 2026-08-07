@@ -2,6 +2,8 @@ from dataclasses import dataclass
 import os
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 
 @dataclass(frozen=True)
 class Settings:
@@ -20,6 +22,9 @@ class Settings:
 
     @classmethod
     def from_env(cls) -> "Settings":
+        # Keep host/container environment variables authoritative while making the
+        # documented local `.env` workflow work without extra uvicorn flags.
+        load_dotenv(Path.cwd() / ".env", override=False)
         deepseek_key = os.getenv("DEEPSEEK_API_KEY", "")
         return cls(
             db_path=os.getenv("RESEARCHFLOW_DB_PATH", "./data/researchflow.db"),
