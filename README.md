@@ -78,6 +78,7 @@ docker compose up --build
 ```
 
 容器把 SQLite 数据库和 FastEmbed 模型缓存持久化到 `researchflow-data` volume。模型文件会在首次设置 `EMBEDDING_PROVIDER=fastembed` 后下载，不会被硬编码进镜像。
+`.dockerignore` 会排除 `.env`、本地数据库、模型缓存、虚拟环境和 Git 元数据，避免它们进入镜像构建上下文。
 
 ## API 摘要
 

@@ -1,0 +1,14 @@
+.git/
+.github/
+.venv/
+.pytest_cache/
+.test-tmp/
+__pycache__/
+*.py[cod]
+*.db
+.env
+data/
+researchflow_agent.egg-info/
+tests/
+evals/
+docs/
