@@ -24,16 +24,18 @@ ResearchFlow 不是只调用一次模型的聊天壳。它把文档解析、知�
 ## 架构
 
 ```mermaid
-flowchart LR
-    UI[Web UI / REST API] --> PLAN[Plan & Route]
-    PLAN -->|knowledge question| RETRIEVE[Hybrid Retrieval\nBM25 + Vector + RRF]
-    PLAN -->|math expression| TOOL[Safe Calculator]
-    PLAN -->|empty corpus| ANSWER[Constrained Answer]
-    RETRIEVE --> ANSWER
+flowchart TD
+    UI[Web UI / REST API] --> PLAN[Plan and Route]
+    PLAN --> RAG[Knowledge query]
+    PLAN --> TOOL[Calculation query]
+    PLAN --> DIRECT[Empty corpus]
+    RAG --> RETRIEVE[Hybrid Retrieval<br/>BM25 + Vector + RRF]
+    RETRIEVE --> ANSWER[Constrained Answer]
     TOOL --> ANSWER
-    ANSWER --> VERIFY[Verify citation / tool result]
-    VERIFY -->|RAG failure: retry once| RETRIEVE
-    VERIFY -->|pass or stop| PERSIST[(SQLite\nmessages + traces)]
+    DIRECT --> ANSWER
+    ANSWER --> VERIFY[Verify evidence]
+    VERIFY -->|verified or stopped| PERSIST[(SQLite<br/>messages and traces)]
+    VERIFY -->|RAG retry once| RAG
 ```
 
 ## 快速开始
