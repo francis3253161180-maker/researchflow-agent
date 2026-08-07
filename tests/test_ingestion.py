@@ -6,6 +6,34 @@ from app.ingestion import parse_upload
 from app.config import Settings
 
 
+def make_text_pdf(text: str) -> bytes:
+    """Build a tiny standards-compliant one-page PDF for parser regression tests."""
+    escaped = text.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
+    stream = f"BT /F1 12 Tf 72 720 Td ({escaped}) Tj ET".encode("ascii")
+    objects = [
+        b"<< /Type /Catalog /Pages 2 0 R >>",
+        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>",
+        b"<< /Length " + str(len(stream)).encode("ascii") + b" >>\nstream\n" + stream + b"\nendstream",
+        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+    ]
+    content = bytearray(b"%PDF-1.4\n")
+    offsets = [0]
+    for index, value in enumerate(objects, start=1):
+        offsets.append(len(content))
+        content.extend(f"{index} 0 obj\n".encode("ascii"))
+        content.extend(value)
+        content.extend(b"\nendobj\n")
+    xref_at = len(content)
+    content.extend(f"xref\n0 {len(objects) + 1}\n".encode("ascii"))
+    content.extend(b"0000000000 65535 f \n")
+    content.extend(b"".join(f"{offset:010d} 00000 n \n".encode("ascii") for offset in offsets[1:]))
+    content.extend(
+        f"trailer\n<< /Size {len(objects) + 1} /Root 1 0 R >>\nstartxref\n{xref_at}\n%%EOF\n".encode("ascii")
+    )
+    return bytes(content)
+
+
 def test_markdown_parser_preserves_sections():
     parsed = parse_upload(
         "note.md",
@@ -25,6 +53,14 @@ def test_docx_parser_extracts_paragraphs():
     parsed = parse_upload("paper-notes.docx", buffer.getvalue())
     assert parsed.filename == "paper-notes.docx"
     assert "experimental configuration" in parsed.content
+
+
+def test_pdf_parser_preserves_page_number_and_text():
+    parsed = parse_upload("paper.pdf", make_text_pdf("ResearchFlow PDF parser regression"))
+
+    assert parsed.filename == "paper.pdf"
+    assert parsed.blocks[0].page == 1
+    assert "ResearchFlow PDF parser regression" in parsed.content
 
 
 def test_settings_loads_local_dotenv_without_overriding_process_env(tmp_path, monkeypatch):
