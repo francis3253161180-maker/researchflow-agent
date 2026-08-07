@@ -76,6 +76,7 @@ class Database:
                     verified INTEGER NOT NULL,
                     latency_ms REAL NOT NULL,
                     events TEXT NOT NULL,
+                    errors TEXT NOT NULL DEFAULT '[]',
                     created_at TEXT NOT NULL
                 );
                 """
@@ -84,6 +85,7 @@ class Database:
             self._ensure_column(conn, "documents", "media_type", "TEXT NOT NULL DEFAULT 'text/plain'")
             self._ensure_column(conn, "chunks", "page", "INTEGER")
             self._ensure_column(conn, "chunks", "section", "TEXT")
+            self._ensure_column(conn, "runs", "errors", "TEXT NOT NULL DEFAULT '[]'")
 
     @staticmethod
     def _ensure_column(conn: sqlite3.Connection, table: str, column: str, definition: str) -> None:
@@ -192,8 +194,8 @@ class Database:
         with self.connect() as conn:
             conn.execute(
                 """
-                INSERT INTO runs(run_id, session_id, query, route, answer, verified, latency_ms, events, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO runs(run_id, session_id, query, route, answer, verified, latency_ms, events, errors, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     run["run_id"],
@@ -204,6 +206,7 @@ class Database:
                     int(run["verified"]),
                     run["latency_ms"],
                     json.dumps(run["events"], ensure_ascii=False),
+                    json.dumps(run.get("errors", []), ensure_ascii=False),
                     utc_now(),
                 ),
             )
@@ -216,4 +219,5 @@ class Database:
         result = dict(row)
         result["verified"] = bool(result["verified"])
         result["events"] = json.loads(result["events"])
+        result["errors"] = json.loads(result["errors"])
         return result

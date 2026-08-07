@@ -71,7 +71,12 @@ def build_graph(db: Database, retriever: HybridRetriever, llm: LLMClient):
             errors = state.get("errors", [])
         except Exception as exc:
             answer = "模型服务暂时不可用，已保留检索结果，请稍后重试。"
-            errors = [*state.get("errors", []), f"llm_error: {exc}"]
+            # Keep persisted traces useful without storing provider responses,
+            # request details, or any accidental secrets.
+            error_code = f"llm_error: {type(exc).__name__}"
+            errors = state.get("errors", [])
+            if error_code not in errors:
+                errors = [*errors, error_code]
         citations = contexts[:3] if contexts else []
         return {
             "answer": answer,
@@ -115,6 +120,7 @@ def build_graph(db: Database, retriever: HybridRetriever, llm: LLMClient):
                 "verified": state["verified"],
                 "latency_ms": latency_ms,
                 "events": events,
+                "errors": state.get("errors", []),
             }
         )
         return {"latency_ms": latency_ms, "events": events}

@@ -42,3 +42,21 @@ def test_missing_citations_retry_exactly_once(tmp_path):
     assert len(retrieve_events) == 2
     assert result["retry_count"] == 2
     assert result["verified"] is False
+
+
+def test_model_failure_is_sanitized_and_persisted_in_run_trace(tmp_path):
+    class FailingLLM:
+        def generate(self, query, contexts, memory, tool_result=""):
+            raise RuntimeError("provider returned internal request details")
+
+    db = Database(str(tmp_path / "failure.db"))
+    retriever = HybridRetriever(db, HashEmbedding())
+    retriever.ingest("failure", "unit-test", "The test corpus gives the RAG route an evidence chunk.")
+    graph = build_graph(db, retriever, FailingLLM())
+
+    result = graph.invoke(initial_state("session_failure", "What evidence exists?"), {"recursion_limit": 12})
+    persisted = db.get_run(result["run_id"])
+
+    assert result["errors"] == ["llm_error: RuntimeError"]
+    assert persisted is not None
+    assert persisted["errors"] == ["llm_error: RuntimeError"]

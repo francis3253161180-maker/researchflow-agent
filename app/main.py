@@ -109,6 +109,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             verified=result["verified"],
             latency_ms=result["latency_ms"],
             events=result.get("events", []),
+            errors=result.get("errors", []),
         )
 
     @app.get("/api/sessions/{session_id}", response_model=list[SessionMessage])

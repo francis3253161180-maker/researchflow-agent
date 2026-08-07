@@ -58,6 +58,7 @@ class ChatResponse(BaseModel):
     verified: bool
     latency_ms: float
     events: list[dict[str, Any]]
+    errors: list[str] = []
 
 
 class SessionMessage(BaseModel):
@@ -75,4 +76,5 @@ class RunDetail(BaseModel):
     verified: bool
     latency_ms: float
     events: list[dict[str, Any]]
+    errors: list[str]
     created_at: str
