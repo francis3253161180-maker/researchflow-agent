@@ -1,0 +1,50 @@
+[
+  {
+    "title": "文档导入",
+    "content": "ResearchFlow accepts PDF, DOCX, Markdown and TXT uploads. PDF text is stored in page-level blocks so retrieved citations can show the original page number. Markdown headings are stored as section metadata.",
+    "question": "Which uploaded formats are supported?",
+    "expected": "PDF, DOCX, Markdown and TXT"
+  },
+  {
+    "title": "混合检索",
+    "content": "The retrieval layer combines lexical BM25-style ranking and vector similarity. It merges the two ranked lists with reciprocal rank fusion, then returns the highest ranked evidence chunks.",
+    "question": "How are lexical and semantic retrieval results combined?",
+    "expected": "reciprocal rank fusion"
+  },
+  {
+    "title": "CPU Embedding",
+    "content": "The optional local semantic retriever uses FastEmbed with the BAAI/bge-small-zh-v1.5 model. It runs through ONNX Runtime on CPU and produces a 512-dimensional embedding vector. A GPU is not required.",
+    "question": "Does the local embedding model require a GPU?",
+    "expected": "A GPU is not required"
+  },
+  {
+    "title": "Agent 编排",
+    "content": "The LangGraph workflow is plan to retrieve or tool to answer to verify to persist. The plan node routes calculation expressions to a safe calculator and knowledge questions to retrieval.",
+    "question": "What routes a calculation expression to the calculator?",
+    "expected": "The plan node"
+  },
+  {
+    "title": "引用校验",
+    "content": "For a RAG route, the verify node requires both retrieved citations and at least one matching bracket citation marker such as [1] in the answer. If the check fails, the agent expands the retrieval query and retries once.",
+    "question": "What happens when a RAG answer has no valid citation marker?",
+    "expected": "retries once"
+  },
+  {
+    "title": "持久化",
+    "content": "SQLite persists document records, chunks, conversation messages, and run traces. Each run trace contains the route, verification result, latency and node events, which makes a failed answer inspectable after the request finishes.",
+    "question": "Which data is stored to inspect a failed answer later?",
+    "expected": "run traces"
+  },
+  {
+    "title": "运行防护",
+    "content": "When RESEARCHFLOW_APP_API_KEY is configured, every API endpoint under /api requires the X-API-Key request header. The health endpoint remains available for deployment probes.",
+    "question": "Which header is required when API protection is enabled?",
+    "expected": "X-API-Key"
+  },
+  {
+    "title": "提示注入防护",
+    "content": "The system prompt treats uploaded documents as untrusted evidence rather than instructions. The model must not follow commands embedded in a document and should answer only from supplied evidence when context is present.",
+    "question": "How are instructions embedded inside uploaded documents handled?",
+    "expected": "untrusted evidence"
+  }
+]

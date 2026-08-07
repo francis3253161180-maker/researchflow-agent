@@ -1,0 +1,24 @@
+services:
+  researchflow:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      RESEARCHFLOW_DB_PATH: /app/data/researchflow.db
+      LLM_BASE_URL: ${LLM_BASE_URL:-}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_MODEL: ${LLM_MODEL:-}
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      EMBEDDING_BASE_URL: ${EMBEDDING_BASE_URL:-}
+      EMBEDDING_API_KEY: ${EMBEDDING_API_KEY:-}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-}
+      EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-hash}
+      FASTEMBED_MODEL: ${FASTEMBED_MODEL:-BAAI/bge-small-zh-v1.5}
+      FASTEMBED_CACHE_DIR: /app/data/models
+      RESEARCHFLOW_APP_API_KEY: ${RESEARCHFLOW_APP_API_KEY:-}
+      RESEARCHFLOW_MAX_UPLOAD_BYTES: ${RESEARCHFLOW_MAX_UPLOAD_BYTES:-15728640}
+    volumes:
+      - researchflow-data:/app/data
+
+volumes:
+  researchflow-data:

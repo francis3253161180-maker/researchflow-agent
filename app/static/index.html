@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ResearchFlow Agent</title>
+  <style>
+    :root { --ink:#14283a; --muted:#617689; --blue:#2376b8; --line:#d9e4ed; --soft:#f4f8fb; --good:#22734b; --danger:#b33939; }
+    * { box-sizing:border-box; } body { margin:0; color:var(--ink); background:#eff4f8; font:14px/1.5 Inter,"Microsoft YaHei",sans-serif; }
+    main { max-width:1160px; margin:32px auto; padding:0 18px; } header { display:flex; gap:16px; align-items:flex-start; justify-content:space-between; margin-bottom:18px; }
+    h1 { font-size:30px; margin:0 0 6px; letter-spacing:-.4px; } header p { margin:0; color:var(--muted); } .badge { color:var(--good); background:#eaf7ef; border-radius:999px; padding:5px 9px; font-size:12px; white-space:nowrap; }
+    .grid { display:grid; grid-template-columns:370px 1fr; gap:18px; } .stack { display:grid; gap:18px; align-content:start; } .card { background:#fff; border:1px solid var(--line); border-radius:13px; padding:18px; box-shadow:0 6px 22px rgba(22,55,79,.06); }
+    h2 { margin:0 0 12px; font-size:17px; } h3 { margin:0 0 7px; font-size:14px; } label { display:block; font-size:12px; font-weight:700; margin:10px 0 5px; } input, textarea { width:100%; border:1px solid #bcd0df; border-radius:8px; padding:9px 10px; color:var(--ink); font:inherit; } textarea { min-height:126px; resize:vertical; }
+    button { margin-top:11px; border:0; border-radius:8px; padding:9px 12px; color:#fff; background:var(--blue); font-weight:700; cursor:pointer; } button:hover { filter:brightness(.95); } button.secondary { margin:0; background:#6f8190; } button.danger { background:transparent; border:1px solid #d9a8a8; color:var(--danger); padding:5px 8px; font-size:12px; }
+    .status, #meta { margin-top:9px; color:var(--muted); font-size:12px; } .error { color:var(--danger); } .small { color:var(--muted); font-size:12px; } #answer { min-height:168px; white-space:pre-wrap; line-height:1.7; background:var(--soft); border-radius:9px; padding:13px; }
+    .citation { border-top:1px solid var(--line); margin-top:10px; padding-top:10px; font-size:13px; line-height:1.55; } .citation-title { color:#1f608f; font-weight:700; } .documents { display:grid; gap:9px; } .document { border:1px solid var(--line); border-radius:9px; padding:10px; } .doc-row { display:flex; align-items:center; gap:8px; justify-content:space-between; } .hidden { display:none; }
+    @media(max-width:800px) { header { display:block; } .badge { display:inline-block; margin-top:10px; } .grid { grid-template-columns:1fr; } }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <div><h1>ResearchFlow Agent</h1><p>科研文档导入 · 混合检索 · Agent 编排 · 引用校验 · 运行可观测</p></div>
+    <div id="health" class="badge">正在检查服务状态…</div>
+  </header>
+  <section class="grid">
+    <div class="stack">
+      <section class="card">
+        <h2>导入知识库</h2>
+        <label for="file">上传 PDF / DOCX / Markdown / TXT</label><input id="file" type="file" accept=".pdf,.docx,.md,.txt" />
+        <label for="source">来源标记</label><input id="source" value="local-upload" maxlength="500" />
+        <button onclick="uploadDocument()">上传并解析</button>
+        <div class="status" id="upload-status">文件上限由服务端配置，默认 15 MB。</div>
+        <hr style="border:0;border-top:1px solid var(--line);margin:18px 0" />
+        <h3>或粘贴研究笔记</h3>
+        <label for="title">标题</label><input id="title" value="研究笔记" />
+        <label for="content">正文</label><textarea id="content" placeholder="粘贴论文摘要、实验结论或阅读笔记…"></textarea>
+        <button class="secondary" onclick="ingestText()">写入文本笔记</button>
+      </section>
+      <section class="card">
+        <h2>已导入文档</h2><div id="documents" class="documents"><span class="small">正在加载…</span></div>
+      </section>
+    </div>
+    <section class="card">
+      <h2>Agent 问答</h2>
+      <label for="query">问题</label><input id="query" placeholder="这篇论文的方法、实验设置和主要结论是什么？" />
+      <button onclick="ask()">运行 Agent</button>
+      <div id="answer">导入资料后即可提问。系统会执行 plan → retrieve / tool → answer → verify → persist。</div>
+      <div id="meta"></div><div id="citations"></div>
+    </section>
+  </section>
+</main>
+<script>
+let sessionId = null;
+const $ = id => document.getElementById(id);
+const escapeHtml = value => String(value || '').replace(/[&<>'"]/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
+async function request(url, options={}) { const response = await fetch(url, options); const body = response.status === 204 ? null : await response.json(); if (!response.ok) throw new Error(body?.detail || JSON.stringify(body)); return body; }
+function status(message, isError=false) { $('upload-status').textContent = message; $('upload-status').className = `status ${isError ? 'error' : ''}`; }
+async function loadHealth() { try { const data = await request('/health'); $('health').textContent = `服务正常 · ${data.chunks} chunks · ${data.llm_configured ? 'LLM 已配置' : '离线回答模式'}`; } catch { $('health').textContent = '服务暂不可用'; } }
+async function loadDocuments() { try { const docs = await request('/api/documents'); $('documents').innerHTML = docs.length ? docs.map(doc => `<div class="document"><div class="doc-row"><b>${escapeHtml(doc.title)}</b><button class="danger" onclick="deleteDocument('${doc.id}')">删除</button></div><div class="small">${escapeHtml(doc.filename || doc.source)} · ${doc.chunks} chunks · ${escapeHtml(doc.media_type)}</div></div>`).join('') : '<span class="small">暂无文档。</span>'; } catch (error) { $('documents').innerHTML = `<span class="small error">${escapeHtml(error.message)}</span>`; } }
+async function ingestText() { try { const data = await request('/api/documents', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({title:$('title').value, source:$('source').value || 'manual', content:$('content').value})}); status(`已写入 ${data.chunks} 个分块。`); $('content').value = ''; await loadDocuments(); await loadHealth(); } catch (error) { status(error.message, true); } }
+async function uploadDocument() { const selected = $('file').files[0]; if (!selected) return status('请先选择一个文件。', true); try { const form = new FormData(); form.append('file', selected); form.append('source', $('source').value || 'upload'); const data = await request('/api/documents/upload', {method:'POST', body:form}); status(`已解析 ${escapeHtml(selected.name)}，写入 ${data.chunks} 个分块。`); $('file').value = ''; await loadDocuments(); await loadHealth(); } catch (error) { status(error.message, true); } }
+async function deleteDocument(id) { if (!confirm('删除该文档及其所有分块？')) return; try { await request(`/api/documents/${id}`, {method:'DELETE'}); await loadDocuments(); await loadHealth(); } catch (error) { alert(error.message); } }
+async function ask() { const answer = $('answer'); answer.textContent = 'Agent 运行中…'; $('meta').textContent = ''; $('citations').innerHTML = ''; try { const data = await request('/api/chat', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({query:$('query').value, session_id:sessionId})}); sessionId = data.session_id; answer.textContent = data.answer; $('meta').textContent = `route=${data.route} · verified=${data.verified} · ${data.latency_ms} ms · run=${data.run_id}`; $('citations').innerHTML = data.citations.map((c, i) => `<div class="citation"><div class="citation-title">[${i+1}] ${escapeHtml(c.title)}${c.page ? ` · 第 ${c.page} 页` : ''}</div><div class="small">${escapeHtml(c.filename || c.source)} · score ${Number(c.score).toFixed(3)}</div><div>${escapeHtml(c.content.slice(0, 360))}</div></div>`).join(''); } catch (error) { answer.textContent = error.message; } }
+loadHealth(); loadDocuments();
+</script>
+</body>
+</html>
