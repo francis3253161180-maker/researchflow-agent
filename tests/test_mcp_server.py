@@ -1,5 +1,6 @@
 import asyncio
 from pathlib import Path
+import sys
 
 from app.config import Settings
 from app.mcp_server import create_mcp_server
@@ -58,7 +59,7 @@ def test_mcp_stdio_client_discovers_and_calls_server(tmp_path):
 
     async def run_client() -> None:
         params = StdioServerParameters(
-            command=str(Path(".venv/Scripts/python.exe").resolve()),
+            command=sys.executable,
             args=["-m", "app.mcp_server"],
             cwd=str(Path.cwd()),
             env={"RESEARCHFLOW_DB_PATH": settings.db_path},
