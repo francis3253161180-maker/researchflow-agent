@@ -71,7 +71,8 @@ def test_web_ui_exposes_upload_and_citation_surfaces(tmp_path):
     with TestClient(app) as client:
         page = client.get("/")
         assert page.status_code == 200
-        assert "uploadSelectedFile" in page.text
-        assert "选择后自动上传并解析" in page.text
+        assert "uploadSelectedFiles" in page.text
+        assert "可多选；选择后自动上传并解析" in page.text
+        assert "multiple" in page.text
         assert "page-aware citations" not in page.text  # UI stays Chinese-facing
         assert "选择 PDF / DOCX / Markdown / TXT" in page.text
