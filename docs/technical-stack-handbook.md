@@ -10,6 +10,8 @@
 
 本手册是查询资料，不是必须线性读完的教材。结合 [两天主计划](weekend-study-guide.md) 和 [文件地图](file-map.md)：
 
+如果某一节还没有建立心智模型，先看 [快速入门手册](quickstarts/README.md)；如果概念零散，使用 [知识关系图全集](knowledge-maps.md) 连接各组件。
+
 - **周六 P0**：第 2–5 节（FastAPI、LangGraph、Agent、RAG）和第 14 节（LLM API/Prompt）；
 - **周日 P0**：第 6–10 节（BM25、Embedding、RRF、引用评测、SQLite）和第 12 节中的测试部分；
 - **P1 查缺**：第 1、11、13、15 节（Python、Docker、HTTP、配置/可观测性）；

@@ -73,6 +73,9 @@ app/main.py -> app/service.py -> app/ingestion.py -> app/retrieval.py -> app/db.
 | 文档 | 作用 | 是否精读 |
 | --- | --- | --- |
 | `weekend-study-guide.md` | 两日主计划和验收标准 | P0，按时间执行 |
+| `quickstarts/README.md` | FastAPI、LangGraph、SQLite 与配套栈入门索引 | P0，随两日计划学习 |
+| `knowledge-maps.md` | 各知识面组件关系与流程图 | P0，每学完一块闭卷复画 |
+| `framework-boundaries.md` | 相邻框架、协议和平台选型 | P1，理解边界即可 |
 | `code-walkthrough.md` | 跟踪请求和导入链路 | P0 |
 | `technical-stack-handbook.md` | 项目技术栈核心与高频追问 | 按优先级选读，不要从头背到尾 |
 | `interview-questions.md` | 闭卷自测和表达训练 | P0，先答再看 |
