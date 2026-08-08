@@ -178,7 +178,7 @@ flowchart TB
 
 ## 9. 工具调用、ReAct 与本项目的关系
 
-ResearchFlow 是显式工作流 Agent：route 由规则决定，工具由固定节点执行。它没有实现“LLM 不断 Thought/Action/Observation 循环”的完整 ReAct，也没有 MCP client/server 动态发现工具。
+ResearchFlow 是显式工作流 Agent：route 由规则决定，工具由固定节点执行。它没有实现“LLM 不断 Thought/Action/Observation 循环”的完整 ReAct；LangGraph 主链路也不依赖 MCP 的动态工具发现。项目额外提供了独立 MCP Server，供外部 Host 发现和调用检索、引用回查与计算工具——这与应用内工作流编排是两条互补的集成路径。
 
 ```mermaid
 flowchart TB

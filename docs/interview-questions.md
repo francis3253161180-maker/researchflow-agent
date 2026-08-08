@@ -44,7 +44,7 @@ Checkpointer保存图状态以支持恢复、暂停、线程状态和 human-in-t
 
 ### 10. Function Calling 与 MCP 有什么区别？
 
-Function Calling 是模型输出结构化工具调用的能力；MCP 是客户端发现和调用外部工具/资源的协议。当前 calculator 是应用内工具，没有实现 MCP 服务。
+Function Calling 是模型输出结构化工具调用的能力；MCP 是客户端发现和调用外部工具/资源的协议。ResearchFlow 同时保留应用内的 calculator，并实现了独立 MCP Server：外部 Host 可通过 `search_research_documents`、`get_citation_context`、`calculate_expression` 和文档 Resource 访问本地知识库；应用内 LangGraph 则继续直接调用 Python 工具函数。二者解决的边界不同。
 
 ## C. RAG 与检索
 

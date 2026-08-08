@@ -50,10 +50,12 @@ app/main.py -> app/service.py -> app/ingestion.py -> app/retrieval.py -> app/db.
 | --- | --- | --- |
 | P0 | `tests/test_graph.py` | 三条路由、引用校验、一次重试、异常脱敏；用它反推图的行为承诺。 |
 | P0 | `tests/test_retrieval.py` | 混合检索和分块；理解排序结果为什么命中。 |
+| P0 | `tests/test_mcp_server.py` | MCP Tools / Resource、精确引用回查，以及独立 `stdio` Client/Server 的端到端调用。 |
 | P0 | `tests/test_api.py` | 从 HTTP 到存储的端到端行为、上传/删除、API Key、UI。 |
 | P1 | `tests/test_ingestion.py` | PDF 页码、Markdown 分节、DOCX 和环境变量边界。 |
-| P0 | `scripts/run_eval.py` | 回归评测如何计算 retrieval/answer/citation/verified 命中；能说明它不是生产准确率。 |
+| P0 | `scripts/run_eval.py` | 两类评测：8 条受控回归样例验证端到端链路；4 篇论文、16 条标注问题比较词法 / Dense / Hybrid 的文档级 Recall、MRR 与延迟。能说明两者都不是生产准确率。 |
 | P1 | `evals/eval_set.json` | 8 条受控样例的结构与局限；至少亲手新增或修改一条临时样例观察结果。 |
+| P1 | `evals/paper_retrieval_queries.json` | 16 条论文检索问题与目标文档标签；理解为何强术语重合语料中词法检索表现更好。 |
 
 ## 运行、部署与仓库配置
 
