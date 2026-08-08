@@ -6,6 +6,10 @@ import time
 from app.config import Settings
 
 
+class LLMConnectionError(RuntimeError):
+    """A provider connection failed after bounded retries."""
+
+
 class LLMClient:
     def __init__(self, settings: Settings):
         self.base_url = settings.llm_base_url.rstrip("/")
@@ -69,6 +73,8 @@ class LLMClient:
                 last_error = exc
                 if attempt < 2:
                     time.sleep(attempt + 1)
+        if isinstance(last_error, httpx.RequestError):
+            raise LLMConnectionError("LLM connection failed after 3 attempts") from last_error
         raise RuntimeError("LLM request failed after 3 attempts") from last_error
 
     @staticmethod

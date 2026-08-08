@@ -8,7 +8,7 @@ from uuid import uuid4
 from langgraph.graph import END, START, StateGraph
 
 from app.db import Database
-from app.llm import LLMClient
+from app.llm import LLMClient, LLMConnectionError
 from app.retrieval import HybridRetriever
 from app.tools import calculate
 
@@ -70,7 +70,11 @@ def build_graph(db: Database, retriever: HybridRetriever, llm: LLMClient):
             answer = llm.generate(state["query"], contexts, memory, state.get("tool_result", ""))
             errors = state.get("errors", [])
         except Exception as exc:
-            answer = "模型服务暂时不可用，已保留检索结果，请稍后重试。"
+            answer = (
+                "模型网络连接暂时失败，已保留检索结果，请稍后重试。"
+                if isinstance(exc, LLMConnectionError)
+                else "模型服务暂时不可用，已保留检索结果，请稍后重试。"
+            )
             # Keep persisted traces useful without storing provider responses,
             # request details, or any accidental secrets.
             error_code = f"llm_error: {type(exc).__name__}"

@@ -1,6 +1,7 @@
 from app.config import Settings
 from app.db import Database
 from app.graph import build_graph, initial_state
+from app.llm import LLMConnectionError
 from app.retrieval import HashEmbedding, HybridRetriever
 from app.service import ResearchFlowService
 
@@ -77,3 +78,19 @@ def test_empty_model_response_is_sanitized_instead_of_rendered_as_blank(tmp_path
 
     assert result["answer"].strip()
     assert result["errors"] == ["llm_error: RuntimeError"]
+
+
+def test_model_connection_error_is_explained_to_the_user(tmp_path):
+    class UnreachableLLM:
+        def generate(self, query, contexts, memory, tool_result=""):
+            raise LLMConnectionError("connection failed")
+
+    db = Database(str(tmp_path / "connection-error.db"))
+    retriever = HybridRetriever(db, HashEmbedding())
+    retriever.ingest("evidence", "unit-test", "The corpus contains a factual evidence chunk.")
+    graph = build_graph(db, retriever, UnreachableLLM())
+
+    result = graph.invoke(initial_state("session_connection", "What evidence exists?"), {"recursion_limit": 12})
+
+    assert "网络连接" in result["answer"]
+    assert result["errors"] == ["llm_error: LLMConnectionError"]
