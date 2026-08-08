@@ -123,7 +123,9 @@ evals/              # 小型、边界清楚的回归数据
 tests/              # 单元和 API 端到端测试
 ```
 
-想在短时间内真正掌握项目而非只会演示，请按 [学习与面试路径](docs/learning-path.md) 操作。
+想在短时间内真正掌握项目而非只会演示，请从 [周末学习冲刺](docs/weekend-study-guide.md) 开始，并按 [学习与面试路径](docs/learning-path.md) 操作。
+
+FastAPI、LangGraph、SQLite 与配套框架的核心入门材料统一放在 [快速入门手册](docs/quickstarts/README.md)；需要复盘组件关系时查看 [知识关系图全集](docs/knowledge-maps.md)。
 
 ## 设计取舍与下一步
 
@@ -143,6 +145,16 @@ tests/              # 单元和 API 端到端测试
 
 - [架构、执行流程与设计取舍](docs/architecture-and-decisions.md)：组件职责、LangGraph 状态流、检索链路、验证边界与生产演进路径。
 - [学习与面试路径](docs/learning-path.md)：2–3 天动手学习安排和 90 秒项目讲解脚本。
+- [周末学习冲刺](docs/weekend-study-guide.md)：周六运行与走读、周日失败案例与修改、周一投递检查。
+- [文件地图与精读优先级](docs/file-map.md)：逐文件职责、两天内的 P0/P1/P2 阅读深度与注释原则。
+- [快速入门手册](docs/quickstarts/README.md)：FastAPI、LangGraph、SQLite 及配套栈的核心原理、高频题和项目验收。
+- [知识关系图全集](docs/knowledge-maps.md)：API、编排、RAG、持久化、LLM、测试部署及算法扩展的组件关系图。
+- [Agent 框架与组件边界](docs/framework-boundaries.md)：LangGraph、LangChain、LlamaIndex、MCP、Dify/Coze 与 vLLM 的定位和选型。
+- [代码走读](docs/code-walkthrough.md)：从 FastAPI 请求到 LangGraph、检索、模型、校验和 SQLite 的逐步追踪。
+- [技术栈核心与高频知识点](docs/technical-stack-handbook.md)：Python、FastAPI、LangGraph、Agent、RAG、检索、数据库、Docker、CI 与测试。
+- [高频面试问题](docs/interview-questions.md)：36 个项目追问及边界清楚的回答框架。
+- [失败案例与调试](docs/failure-cases-and-debugging.md)：空语料、引用缺失、模型异常、解析、检索、SQLite 与 Docker 排错。
+- [动手练习](docs/hands-on-exercises.md)：从补测试到 Reranker、正式评测和存储迁移的分级任务。
 
 ## License
 
