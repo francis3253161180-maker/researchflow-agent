@@ -35,7 +35,7 @@ def event(state: AgentState, node: str, detail: str) -> list[dict[str, Any]]:
     return [*state.get("events", []), {"node": node, "detail": detail, "at_ms": round((time.perf_counter() - state["started_at"]) * 1000, 2)}]
 
 
-def build_graph(db: Database, retriever: HybridRetriever, llm: LLMClient):
+def build_graph(db: Database, retriever: HybridRetriever, llm: LLMClient, retrieval_top_k: int = 6):
     def plan_node(state: AgentState) -> dict[str, Any]:
         query = state["query"].strip()
         has_math = bool(re.search(r"\d\s*[-+*/%]\s*\d", query))
@@ -51,7 +51,7 @@ def build_graph(db: Database, retriever: HybridRetriever, llm: LLMClient):
         query = state["query"]
         if state.get("retry_count", 0):
             query = f"{query} 方法 结果 结论"
-        results = [item.as_dict() for item in retriever.search(query, top_k=4)]
+        results = [item.as_dict() for item in retriever.search(query, top_k=retrieval_top_k)]
         return {"retrieved": results, "events": event(state, "retrieve", f"hits={len(results)}")}
 
     def tool_node(state: AgentState) -> dict[str, Any]:

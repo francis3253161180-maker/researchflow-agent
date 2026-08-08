@@ -21,7 +21,12 @@ class ResearchFlowService:
             settings.reranker_candidates,
         )
         self.llm = LLMClient(settings)
-        self.graph = build_graph(self.db, self.retriever, self.llm)
+        self.graph = build_graph(
+            self.db,
+            self.retriever,
+            self.llm,
+            retrieval_top_k=max(1, min(settings.retrieval_top_k, 8)),
+        )
 
     def ingest(self, title: str, source: str, content: str) -> tuple[str, int]:
         return self.retriever.ingest(title, source, content)

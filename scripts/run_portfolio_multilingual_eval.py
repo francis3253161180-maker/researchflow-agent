@@ -120,9 +120,15 @@ def main() -> None:
     parser.add_argument("--corpus-root", type=Path, default=ROOT.parent)
     parser.add_argument("--embedding-provider", choices=["hash", "fastembed"], default="fastembed")
     parser.add_argument("--reranker-provider", choices=["none", "bge"], default="none")
+    parser.add_argument("--top-k", type=int, default=12, help="Number of chunks returned per strategy (default: 12).")
     parser.add_argument("--output", type=Path, default=ROOT / "evals" / "results" / "portfolio_multilingual.json")
     args = parser.parse_args()
-    report = evaluate(args.corpus_root, args.embedding_provider, reranker_provider=args.reranker_provider)
+    report = evaluate(
+        args.corpus_root,
+        args.embedding_provider,
+        top_k=max(1, args.top_k),
+        reranker_provider=args.reranker_provider,
+    )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
     print(json.dumps(report["summary"], ensure_ascii=False, indent=2))

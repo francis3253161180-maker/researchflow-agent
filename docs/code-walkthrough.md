@@ -85,7 +85,7 @@ class ChatRequest(BaseModel):
 
 ## 6. retrieve 节点
 
-首次使用原问题检索；若已经失败一次，则追加“方法 结果 结论”扩展查询。`HybridRetriever.search(query, top_k=4)` 返回四条候选证据。
+首次使用原问题检索；若已经失败一次，则追加“方法 结果 结论”扩展查询。`HybridRetriever.search` 返回由 `RETRIEVAL_TOP_K` 控制的候选证据（默认 6 条）。
 
 注意：这只是固定扩展，不是完整 Query Rewrite 模型。面试时应准确描述为“有限的规则式查询扩展”。
 

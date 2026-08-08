@@ -2,7 +2,14 @@
 
 from __future__ import annotations
 
+import os
 from typing import Protocol
+
+
+# Some Hugging Face mirrors route large model files through Xet. Disabling it
+# keeps this optional local component on the normal HTTP cache path; cache_dir
+# still controls where the model is stored.
+os.environ.setdefault("HF_HUB_DISABLE_XET", "1")
 
 
 class Reranker(Protocol):

@@ -150,7 +150,7 @@ push/PR到main时，独立job运行Python 3.12下的pytest并构建Docker镜像�
 
 ### 34. 这个项目最大的不足？
 
-当前验证集小且受控；检索线性扫描；引用验证较浅；PDF仅文本层；同步导入；没有图级checkpointer、reranker和正式生产鉴权。
+当前验证集小且受控；检索线性扫描；引用验证较浅；PDF仅文本层；同步导入；没有图级checkpointer和正式生产鉴权。已实现可选 BGE reranker，但在当前 CPU 上延迟高，默认关闭。
 
 ### 35. 下一步只允许做一项，你做什么？
 

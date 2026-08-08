@@ -211,7 +211,7 @@ score(d) = Σ 1 / (k + rank_i(d))
 
 项目中 `k=60`，融合词法和向量两个排名。它避免校准异构分数，但忽略原始分数间隔。
 
-### Reranker（当前未实现）
+### Reranker（已实现，可选）
 
 典型流程：BM25/vector 召回几十条，再用 Cross-encoder 精排到 top-3/top-5。是否加入必须用 Recall@K、MRR、nDCG和端到端延迟验证。
 

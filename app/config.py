@@ -22,6 +22,7 @@ class Settings:
     reranker_model: str = "BAAI/bge-reranker-v2-m3"
     reranker_cache_dir: str = "./data/models"
     reranker_candidates: int = 20
+    retrieval_top_k: int = 6
     app_api_key: str = ""
     max_upload_bytes: int = 15 * 1024 * 1024
 
@@ -47,6 +48,7 @@ class Settings:
             reranker_model=os.getenv("RERANKER_MODEL", "BAAI/bge-reranker-v2-m3"),
             reranker_cache_dir=os.getenv("RERANKER_CACHE_DIR", "./data/models"),
             reranker_candidates=int(os.getenv("RERANKER_CANDIDATES", "20")),
+            retrieval_top_k=int(os.getenv("RETRIEVAL_TOP_K", "6")),
             app_api_key=os.getenv("RESEARCHFLOW_APP_API_KEY", ""),
             max_upload_bytes=int(os.getenv("RESEARCHFLOW_MAX_UPLOAD_BYTES", str(15 * 1024 * 1024))),
         )

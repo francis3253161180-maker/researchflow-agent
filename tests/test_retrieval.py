@@ -1,7 +1,9 @@
+from collections import Counter
+
 from app.config import Settings
 from app.db import Database
 from app.ingestion import TextBlock
-from app.retrieval import HashEmbedding, HybridRetriever, chunk_text
+from app.retrieval import HashEmbedding, HybridRetriever, bm25_scores, chunk_text
 from app.service import ResearchFlowService
 
 
@@ -36,6 +38,15 @@ def test_chunking_prefers_sentence_boundaries_before_character_windows():
     assert len(chunks) > 1
     assert any("Critical metric is 20.7 points." in chunk for chunk in chunks)
     assert all(not chunk.startswith("vidence sentence") for chunk in chunks)
+
+
+def test_chunking_merges_short_section_preamble_into_following_evidence():
+    text = "Meta Review:\n\n" + ("The evidence explains the concern in detail. " * 30)
+    chunks = chunk_text(text, max_chars=180, overlap=20)
+
+    assert len(chunks) > 1
+    assert chunks[0].startswith("Meta Review:")
+    assert "evidence explains" in chunks[0]
 
 
 def test_markdown_section_context_keeps_reviewer_identity_across_chunks(tmp_path):
@@ -78,3 +89,60 @@ def test_reranker_reorders_only_hybrid_candidates(tmp_path):
 
     assert hybrid[0].title == "second"
     assert {item.title for item in lexical} == {"first", "second"}
+
+
+def test_hybrid_preserves_candidates_from_lexical_and_dense_channels(tmp_path):
+    class OpposingDenseEmbedding:
+        def embed_documents(self, texts):
+            return [[float(index), 1.0] for index, _ in enumerate(texts)]
+
+        def embed_query(self, text):
+            return [1.0, 1.0]
+
+    db = Database(str(tmp_path / "coverage.db"))
+    retriever = HybridRetriever(db, OpposingDenseEmbedding())
+    retriever.ingest("lexical-best", "test", "rare exact anchor phrase")
+    retriever.ingest("dense-best", "test", "unrelated semantic passage")
+
+    results = retriever.search("rare exact anchor phrase", top_k=2, strategy="hybrid")
+
+    assert {item.title for item in results} == {"lexical-best", "dense-best"}
+
+
+def test_fielded_bm25_boosts_explicit_section_metadata(tmp_path):
+    service = make_service(tmp_path)
+    service.retriever.ingest(
+        "original-review", "test", "generic review text", blocks=[TextBlock("generic review text", section="Meta Review by Area Chair")]
+    )
+    service.ingest("author-response", "test", "The author repeatedly discusses the review and response.")
+
+    results = service.retriever.search("Meta Review Area Chair", top_k=1, strategy="lexical")
+
+    assert results[0].title == "original-review"
+
+
+def test_bm25_scores_handles_empty_metadata_field():
+    assert bm25_scores(Counter({"query": 1}), [[], []]) == [0.0, 0.0]
+
+
+def test_fielded_bm25_treats_chunks_from_one_section_as_one_metadata_candidate(tmp_path):
+    service = make_service(tmp_path)
+    blocks = [TextBlock("evidence one.\n\nevidence two.", section="Meta Review by Area Chair")]
+    service.retriever.ingest("original-review", "test", blocks[0].content, blocks=blocks)
+    service.ingest("author-response", "test", "The author responds to the review and rebuttal.")
+
+    results = service.retriever.search("Meta Review Area Chair", top_k=1, strategy="hybrid")
+
+    assert results[0].title == "original-review"
+
+
+def test_distinctive_section_match_scopes_hybrid_evidence_to_that_section(tmp_path):
+    service = make_service(tmp_path)
+    original_blocks = [TextBlock(("area chair concern. " * 120), section="Meta Review by Area Chair")]
+    service.retriever.ingest("original-review", "test", original_blocks[0].content, blocks=original_blocks)
+    service.ingest("author-response", "test", "The response talks about the review and rebuttal repeatedly. " * 40)
+
+    results = service.retriever.search("Meta Review Area Chair", top_k=3, strategy="hybrid")
+
+    assert results
+    assert all(item.title == "original-review" for item in results)

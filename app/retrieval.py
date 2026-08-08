@@ -34,7 +34,11 @@ def chunk_text(text: str, max_chars: int = 620, overlap: int = 80) -> list[str]:
         format-agnostic and falls back to overlapping character windows only
         when no usable textual boundary exists.
         """
-        boundaries = [part.strip() for part in re.split(r"\n+|(?<=[.!?。！？])\s+", unit) if part.strip()]
+        boundaries = [
+            part.strip()
+            for part in re.split(r"\n+|(?<=[.!?\u3002\uff01\uff1f])\s+", unit)
+            if part.strip()
+        ]
         if len(boundaries) <= 1:
             boundaries = [unit]
         pieces: list[str] = []
@@ -69,6 +73,21 @@ def chunk_text(text: str, max_chars: int = 620, overlap: int = 80) -> list[str]:
             current = f"{current}\n{paragraph}".strip()
             continue
         if current:
+            # A short lead-in (title, attribution, or a section label) has no
+            # standalone answer value. Carry it into the first substantive
+            # chunk that follows instead of producing a retrievable header-only
+            # chunk. This works for Markdown, PDF and DOCX paragraph streams.
+            if len(current) <= 360:
+                if len(paragraph) <= max_chars:
+                    chunks.append(f"{current}\n{paragraph}")
+                    current = ""
+                    continue
+                long_parts = split_long_unit(paragraph)
+                if long_parts:
+                    chunks.append(f"{current}\n{long_parts[0]}")
+                    chunks.extend(long_parts[1:])
+                    current = ""
+                    continue
             chunks.append(current)
         if len(paragraph) <= max_chars:
             current = paragraph
@@ -177,6 +196,29 @@ def cosine(left: list[float], right: list[float]) -> float:
     return sum(a * b for a, b in zip(left, right))
 
 
+def bm25_scores(query_counts: Counter[str], tokenized_documents: list[list[str]]) -> list[float]:
+    """Compute one BM25 field independently so metadata can stay explainable."""
+    if not tokenized_documents:
+        return []
+    document_frequency = Counter()
+    for tokens in tokenized_documents:
+        document_frequency.update(set(tokens))
+    count = len(tokenized_documents)
+    average_length = sum(map(len, tokenized_documents)) / count
+    scores: list[float] = []
+    for tokens in tokenized_documents:
+        counts = Counter(tokens)
+        score = 0.0
+        for token, qtf in query_counts.items():
+            df = document_frequency.get(token, 0)
+            idf = math.log(1 + (count - df + 0.5) / (df + 0.5))
+            tf = counts.get(token, 0)
+            denominator = tf + 1.5 * (1 - 0.75 + 0.75 * len(tokens) / max(average_length, 1))
+            score += qtf * idf * (tf * 2.5 / denominator if denominator else 0.0)
+        scores.append(score)
+    return scores
+
+
 @dataclass
 class SearchResult:
     chunk_id: str
@@ -269,22 +311,32 @@ class HybridRetriever:
         query_tokens = tokenize(query)
         query_counts = Counter(query_tokens)
         tokenized = [tokenize(chunk["content"]) for chunk in chunks]
-        document_frequency = Counter()
-        for tokens in tokenized:
-            document_frequency.update(set(tokens))
-        average_length = sum(map(len, tokenized)) / max(len(tokenized), 1)
+        metadata_tokenized = [
+            tokenize(" ".join(filter(None, [chunk.get("title"), chunk.get("filename"), chunk.get("section")])))
+            for chunk in chunks
+        ]
+        metadata_keys = [
+            " | ".join(filter(None, [str(chunk.get("title") or ""), str(chunk.get("filename") or ""), str(chunk.get("section") or "")]))
+            for chunk in chunks
+        ]
         n_docs = len(chunks)
-        lexical_scores: list[float] = []
-        for tokens in tokenized:
-            counts = Counter(tokens)
-            score = 0.0
-            for token, qtf in query_counts.items():
-                df = document_frequency.get(token, 0)
-                idf = math.log(1 + (n_docs - df + 0.5) / (df + 0.5))
-                tf = counts.get(token, 0)
-                denominator = tf + 1.5 * (1 - 0.75 + 0.75 * len(tokens) / max(average_length, 1))
-                score += qtf * idf * (tf * 2.5 / denominator if denominator else 0.0)
-            lexical_scores.append(score)
+        content_scores = bm25_scores(query_counts, tokenized)
+        metadata_scores = bm25_scores(query_counts, metadata_tokenized)
+        # Structured metadata is concise and generally more discriminative than
+        # a long body. This is fielded retrieval, not a document-specific rule.
+        grouped_metadata: dict[str, float] = {}
+        for key, score in zip(metadata_keys, metadata_scores):
+            grouped_metadata[key] = max(grouped_metadata.get(key, 0.0), score)
+        ordered_metadata = sorted(grouped_metadata.values(), reverse=True)
+        best_metadata = ordered_metadata[0] if ordered_metadata else 0.0
+        second_metadata = ordered_metadata[1] if len(ordered_metadata) > 1 else 0.0
+        metadata_is_distinctive = best_metadata > 0 and best_metadata >= 2 * max(second_metadata, 1e-9)
+        best_metadata_key = max(grouped_metadata, key=grouped_metadata.get) if grouped_metadata else ""
+        metadata_weight = 4.0 if metadata_is_distinctive else 1.5
+        lexical_scores = [
+            content + metadata_weight * metadata
+            for content, metadata in zip(content_scores, metadata_scores)
+        ]
 
         query_vector = self.embeddings.embed_query(query)
         vector_scores = [cosine(query_vector, chunk["embedding"]) for chunk in chunks]
@@ -301,18 +353,31 @@ class HybridRetriever:
             "dense": vector_scores,
             "hybrid": fused,
         }[strategy]
-        ranked = sorted(range(n_docs), key=lambda i: scores[i], reverse=True)
+        ranked_by_score = sorted(range(n_docs), key=lambda i: scores[i], reverse=True)
+
+        # A distinctive title/section match signals a navigational query. Scope
+        # the answer evidence to that matching field so a long named section
+        # can contribute several complementary chunks instead of being crowded
+        # out by semantically related material from a different document.
+        if strategy == "hybrid" and metadata_is_distinctive:
+            scoped_indices = [index for index, key in enumerate(metadata_keys) if key == best_metadata_key]
+            ranked = sorted(scoped_indices, key=lambda index: scores[index], reverse=True)
+        else:
+            ranked = ranked_by_score
 
         if self.reranker and strategy == "hybrid":
             candidate_indices = ranked[: max(top_k, self.reranker_candidates)]
             reranker_scores = self.reranker.score(query, [chunks[i]["content"] for i in candidate_indices])
-            ranked = [
-                index
-                for _, index in sorted(
-                    zip(reranker_scores, candidate_indices), key=lambda pair: pair[0], reverse=True
-                )
-            ]
-            scores = [reranker_scores[candidate_indices.index(index)] for index in ranked]
+            # Cross-encoder scores are directly comparable for one query. Keep
+            # this stage as standard Top-N -> Top-K reranking rather than adding
+            # a second, unvalidated diversity heuristic.
+            order = sorted(
+                range(len(candidate_indices)),
+                key=lambda position: reranker_scores[position],
+                reverse=True,
+            )
+            ranked = [candidate_indices[position] for position in order]
+            scores = [reranker_scores[position] for position in order]
             return [
                 SearchResult(
                     chunk_id=chunks[index]["id"], document_id=chunks[index]["document_id"],

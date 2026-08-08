@@ -6,30 +6,31 @@
     "warning": "Small portfolio regression evaluation only; not a claim of general RAG accuracy or answer faithfulness."
   },
   "embedding_provider": "fastembed",
+  "reranker_provider": "none",
   "summary": {
     "lexical": {
       "queries": 16,
       "recall_at_1": 0.25,
       "recall_at_3": 0.6875,
-      "mrr_at_6": 0.4531,
-      "evidence_hint_at_4": 0.25,
-      "mean_latency_ms": 206.75
+      "mrr_at_6": 0.4813,
+      "evidence_hint_at_4": 0.3125,
+      "mean_latency_ms": 242.69
     },
     "dense": {
       "queries": 16,
-      "recall_at_1": 0.375,
+      "recall_at_1": 0.4375,
       "recall_at_3": 0.75,
-      "mrr_at_6": 0.5417,
+      "mrr_at_6": 0.5729,
       "evidence_hint_at_4": 0.125,
-      "mean_latency_ms": 210.96
+      "mean_latency_ms": 251.94
     },
     "hybrid": {
       "queries": 16,
-      "recall_at_1": 0.75,
-      "recall_at_3": 0.9375,
-      "mrr_at_6": 0.8333,
-      "evidence_hint_at_4": 0.5625,
-      "mean_latency_ms": 211.88
+      "recall_at_1": 0.8125,
+      "recall_at_3": 1.0,
+      "mrr_at_6": 0.9062,
+      "evidence_hint_at_4": 0.625,
+      "mean_latency_ms": 249.57
     }
   },
   "details": {
@@ -42,7 +43,7 @@
         "strategy": "lexical",
         "document_rank": 3,
         "evidence_hint_found": false,
-        "latency_ms": 226.86,
+        "latency_ms": 275.45,
         "top_documents": [
           "quant-resume-pdf",
           "agent-resume-docx",
@@ -58,7 +59,7 @@
         "strategy": "lexical",
         "document_rank": 4,
         "evidence_hint_found": false,
-        "latency_ms": 204.2,
+        "latency_ms": 235.4,
         "top_documents": [
           "quant-resume-pdf",
           "mackv-openreview",
@@ -74,7 +75,7 @@
         "strategy": "lexical",
         "document_rank": 3,
         "evidence_hint_found": false,
-        "latency_ms": 215.88,
+        "latency_ms": 251.72,
         "top_documents": [
           "agent-resume-docx",
           "quant-resume-pdf",
@@ -89,13 +90,13 @@
         "relevant_document": "mackv-rebuttal",
         "evidence_hint": "KVQuant",
         "strategy": "lexical",
-        "document_rank": 3,
-        "evidence_hint_found": false,
-        "latency_ms": 184.07,
+        "document_rank": 2,
+        "evidence_hint_found": true,
+        "latency_ms": 233.4,
         "top_documents": [
           "quant-resume-pdf",
-          "agent-resume-docx",
           "mackv-rebuttal",
+          "agent-resume-docx",
           "mackv-paper"
         ]
       },
@@ -107,12 +108,11 @@
         "strategy": "lexical",
         "document_rank": 3,
         "evidence_hint_found": false,
-        "latency_ms": 191.24,
+        "latency_ms": 232.62,
         "top_documents": [
           "quant-resume-pdf",
-          "agent-resume-docx",
-          "mackv-openreview",
-          "mackv-rebuttal"
+          "mackv-rebuttal",
+          "mackv-openreview"
         ]
       },
       {
@@ -121,14 +121,14 @@
         "relevant_document": "mackv-openreview",
         "evidence_hint": "The following weaknesses were raised",
         "strategy": "lexical",
-        "document_rank": 3,
+        "document_rank": 4,
         "evidence_hint_found": false,
-        "latency_ms": 206.66,
+        "latency_ms": 217.78,
         "top_documents": [
           "quant-resume-pdf",
           "agent-resume-docx",
-          "mackv-openreview",
           "mackv-rebuttal",
+          "mackv-openreview",
           "holo-openreview"
         ]
       },
@@ -140,7 +140,7 @@
         "strategy": "lexical",
         "document_rank": 3,
         "evidence_hint_found": false,
-        "latency_ms": 220.64,
+        "latency_ms": 259.42,
         "top_documents": [
           "agent-resume-docx",
           "quant-resume-pdf",
@@ -154,15 +154,13 @@
         "relevant_document": "holo-paper",
         "evidence_hint": "O(1) additional activation memory",
         "strategy": "lexical",
-        "document_rank": 4,
+        "document_rank": 3,
         "evidence_hint_found": false,
-        "latency_ms": 206.26,
+        "latency_ms": 235.85,
         "top_documents": [
           "agent-resume-docx",
           "quant-resume-pdf",
-          "holo-openreview",
-          "holo-paper",
-          "holo-rebuttal"
+          "holo-paper"
         ]
       },
       {
@@ -171,14 +169,15 @@
         "relevant_document": "holo-rebuttal",
         "evidence_hint": "Qwen3-8B",
         "strategy": "lexical",
-        "document_rank": 999,
+        "document_rank": 5,
         "evidence_hint_found": false,
-        "latency_ms": 205.06,
+        "latency_ms": 250.51,
         "top_documents": [
           "quant-resume-pdf",
           "agent-resume-docx",
           "holo-openreview",
-          "mackv-openreview"
+          "mackv-openreview",
+          "holo-rebuttal"
         ]
       },
       {
@@ -187,16 +186,16 @@
         "relevant_document": "holo-rebuttal",
         "evidence_hint": "120K",
         "strategy": "lexical",
-        "document_rank": 6,
+        "document_rank": 3,
         "evidence_hint_found": false,
-        "latency_ms": 212.61,
+        "latency_ms": 268.62,
         "top_documents": [
           "agent-resume-docx",
           "quant-resume-pdf",
+          "holo-rebuttal",
           "holo-paper",
           "holo-openreview",
-          "mackv-openreview",
-          "holo-rebuttal"
+          "mackv-openreview"
         ]
       },
       {
@@ -207,7 +206,7 @@
         "strategy": "lexical",
         "document_rank": 4,
         "evidence_hint_found": false,
-        "latency_ms": 202.51,
+        "latency_ms": 263.31,
         "top_documents": [
           "agent-resume-docx",
           "quant-resume-pdf",
@@ -221,14 +220,14 @@
         "relevant_document": "holo-openreview",
         "evidence_hint": "Reviewer Uv9P",
         "strategy": "lexical",
-        "document_rank": 3,
+        "document_rank": 4,
         "evidence_hint_found": false,
-        "latency_ms": 209.26,
+        "latency_ms": 266.09,
         "top_documents": [
           "agent-resume-docx",
           "quant-resume-pdf",
-          "holo-openreview",
-          "holo-rebuttal"
+          "holo-rebuttal",
+          "holo-openreview"
         ]
       },
       {
@@ -239,11 +238,11 @@
         "strategy": "lexical",
         "document_rank": 1,
         "evidence_hint_found": true,
-        "latency_ms": 199.11,
+        "latency_ms": 231.53,
         "top_documents": [
           "agent-resume-docx",
           "quant-resume-pdf",
-          "holo-rebuttal"
+          "mackv-paper"
         ]
       },
       {
@@ -254,11 +253,11 @@
         "strategy": "lexical",
         "document_rank": 1,
         "evidence_hint_found": true,
-        "latency_ms": 203.61,
+        "latency_ms": 225.3,
         "top_documents": [
           "agent-resume-docx",
           "quant-resume-pdf",
-          "holo-rebuttal"
+          "mackv-paper"
         ]
       },
       {
@@ -269,11 +268,11 @@
         "strategy": "lexical",
         "document_rank": 1,
         "evidence_hint_found": true,
-        "latency_ms": 205.66,
+        "latency_ms": 213.69,
         "top_documents": [
           "quant-resume-pdf",
           "agent-resume-docx",
-          "holo-rebuttal"
+          "mackv-paper"
         ]
       },
       {
@@ -284,7 +283,7 @@
         "strategy": "lexical",
         "document_rank": 1,
         "evidence_hint_found": true,
-        "latency_ms": 214.35,
+        "latency_ms": 222.3,
         "top_documents": [
           "quant-resume-pdf",
           "agent-resume-docx",
@@ -302,7 +301,7 @@
         "strategy": "dense",
         "document_rank": 1,
         "evidence_hint_found": false,
-        "latency_ms": 223.66,
+        "latency_ms": 250.77,
         "top_documents": [
           "mackv-paper"
         ]
@@ -315,7 +314,7 @@
         "strategy": "dense",
         "document_rank": 1,
         "evidence_hint_found": false,
-        "latency_ms": 207.65,
+        "latency_ms": 255.29,
         "top_documents": [
           "mackv-paper",
           "mackv-openreview"
@@ -329,7 +328,7 @@
         "strategy": "dense",
         "document_rank": 2,
         "evidence_hint_found": false,
-        "latency_ms": 265.2,
+        "latency_ms": 240.16,
         "top_documents": [
           "mackv-paper",
           "mackv-rebuttal",
@@ -344,7 +343,7 @@
         "strategy": "dense",
         "document_rank": 1,
         "evidence_hint_found": true,
-        "latency_ms": 185.72,
+        "latency_ms": 230.43,
         "top_documents": [
           "mackv-rebuttal",
           "mackv-paper",
@@ -359,7 +358,7 @@
         "strategy": "dense",
         "document_rank": 3,
         "evidence_hint_found": false,
-        "latency_ms": 190.56,
+        "latency_ms": 225.89,
         "top_documents": [
           "mackv-paper",
           "mackv-rebuttal",
@@ -372,13 +371,13 @@
         "relevant_document": "mackv-openreview",
         "evidence_hint": "The following weaknesses were raised",
         "strategy": "dense",
-        "document_rank": 2,
+        "document_rank": 1,
         "evidence_hint_found": false,
-        "latency_ms": 204.58,
+        "latency_ms": 210.07,
         "top_documents": [
-          "mackv-rebuttal",
           "mackv-openreview",
           "holo-openreview",
+          "mackv-rebuttal",
           "mackv-paper"
         ]
       },
@@ -390,7 +389,7 @@
         "strategy": "dense",
         "document_rank": 1,
         "evidence_hint_found": false,
-        "latency_ms": 205.99,
+        "latency_ms": 248.98,
         "top_documents": [
           "holo-paper",
           "holo-openreview",
@@ -405,7 +404,7 @@
         "strategy": "dense",
         "document_rank": 1,
         "evidence_hint_found": false,
-        "latency_ms": 228.38,
+        "latency_ms": 219.61,
         "top_documents": [
           "holo-paper",
           "holo-openreview"
@@ -419,7 +418,7 @@
         "strategy": "dense",
         "document_rank": 3,
         "evidence_hint_found": false,
-        "latency_ms": 230.86,
+        "latency_ms": 287.24,
         "top_documents": [
           "holo-openreview",
           "holo-paper",
@@ -435,7 +434,7 @@
         "strategy": "dense",
         "document_rank": 2,
         "evidence_hint_found": false,
-        "latency_ms": 194.72,
+        "latency_ms": 412.93,
         "top_documents": [
           "holo-paper",
           "holo-rebuttal",
@@ -450,7 +449,7 @@
         "strategy": "dense",
         "document_rank": 1,
         "evidence_hint_found": true,
-        "latency_ms": 209.69,
+        "latency_ms": 318.68,
         "top_documents": [
           "holo-openreview",
           "holo-rebuttal",
@@ -465,7 +464,7 @@
         "strategy": "dense",
         "document_rank": 2,
         "evidence_hint_found": false,
-        "latency_ms": 196.28,
+        "latency_ms": 227.89,
         "top_documents": [
           "holo-paper",
           "holo-openreview",
@@ -480,7 +479,7 @@
         "strategy": "dense",
         "document_rank": 999,
         "evidence_hint_found": false,
-        "latency_ms": 198.73,
+        "latency_ms": 236.02,
         "top_documents": [
           "holo-openreview",
           "mackv-paper",
@@ -497,7 +496,7 @@
         "strategy": "dense",
         "document_rank": 7,
         "evidence_hint_found": false,
-        "latency_ms": 219.73,
+        "latency_ms": 210.02,
         "top_documents": [
           "mackv-rebuttal",
           "mackv-paper",
@@ -515,7 +514,7 @@
         "strategy": "dense",
         "document_rank": 999,
         "evidence_hint_found": false,
-        "latency_ms": 183.65,
+        "latency_ms": 216.17,
         "top_documents": [
           "holo-paper",
           "holo-openreview",
@@ -531,7 +530,7 @@
         "strategy": "dense",
         "document_rank": 999,
         "evidence_hint_found": false,
-        "latency_ms": 229.96,
+        "latency_ms": 240.83,
         "top_documents": [
           "holo-openreview",
           "holo-paper",
@@ -550,7 +549,7 @@
         "strategy": "hybrid",
         "document_rank": 1,
         "evidence_hint_found": false,
-        "latency_ms": 212.2,
+        "latency_ms": 251.12,
         "top_documents": [
           "mackv-paper",
           "mackv-openreview"
@@ -564,7 +563,7 @@
         "strategy": "hybrid",
         "document_rank": 1,
         "evidence_hint_found": true,
-        "latency_ms": 196.12,
+        "latency_ms": 266.04,
         "top_documents": [
           "mackv-paper",
           "mackv-openreview"
@@ -578,7 +577,7 @@
         "strategy": "hybrid",
         "document_rank": 2,
         "evidence_hint_found": true,
-        "latency_ms": 203.7,
+        "latency_ms": 231.54,
         "top_documents": [
           "mackv-paper",
           "mackv-rebuttal",
@@ -593,7 +592,7 @@
         "strategy": "hybrid",
         "document_rank": 1,
         "evidence_hint_found": true,
-        "latency_ms": 199.63,
+        "latency_ms": 231.04,
         "top_documents": [
           "mackv-rebuttal",
           "mackv-openreview",
@@ -606,13 +605,13 @@
         "relevant_document": "mackv-openreview",
         "evidence_hint": "(S1)",
         "strategy": "hybrid",
-        "document_rank": 3,
+        "document_rank": 1,
         "evidence_hint_found": false,
-        "latency_ms": 200.58,
+        "latency_ms": 225.57,
         "top_documents": [
+          "mackv-openreview",
           "mackv-paper",
-          "mackv-rebuttal",
-          "mackv-openreview"
+          "mackv-rebuttal"
         ]
       },
       {
@@ -623,7 +622,7 @@
         "strategy": "hybrid",
         "document_rank": 1,
         "evidence_hint_found": false,
-        "latency_ms": 195.54,
+        "latency_ms": 217.15,
         "top_documents": [
           "mackv-openreview",
           "mackv-rebuttal",
@@ -639,7 +638,7 @@
         "strategy": "hybrid",
         "document_rank": 1,
         "evidence_hint_found": false,
-        "latency_ms": 220.4,
+        "latency_ms": 238.1,
         "top_documents": [
           "holo-paper",
           "holo-rebuttal",
@@ -654,7 +653,7 @@
         "strategy": "hybrid",
         "document_rank": 1,
         "evidence_hint_found": false,
-        "latency_ms": 236.19,
+        "latency_ms": 264.76,
         "top_documents": [
           "holo-paper",
           "holo-openreview",
@@ -669,11 +668,10 @@
         "strategy": "hybrid",
         "document_rank": 1,
         "evidence_hint_found": false,
-        "latency_ms": 276.46,
+        "latency_ms": 301.95,
         "top_documents": [
           "holo-rebuttal",
-          "holo-paper",
-          "holo-openreview"
+          "holo-paper"
         ]
       },
       {
@@ -684,7 +682,7 @@
         "strategy": "hybrid",
         "document_rank": 2,
         "evidence_hint_found": true,
-        "latency_ms": 214.68,
+        "latency_ms": 285.05,
         "top_documents": [
           "holo-paper",
           "holo-rebuttal",
@@ -699,7 +697,7 @@
         "strategy": "hybrid",
         "document_rank": 1,
         "evidence_hint_found": true,
-        "latency_ms": 220.38,
+        "latency_ms": 343.06,
         "top_documents": [
           "holo-openreview",
           "holo-rebuttal"
@@ -711,12 +709,12 @@
         "relevant_document": "holo-openreview",
         "evidence_hint": "Reviewer Uv9P",
         "strategy": "hybrid",
-        "document_rank": 1,
+        "document_rank": 2,
         "evidence_hint_found": true,
-        "latency_ms": 212.55,
+        "latency_ms": 218.0,
         "top_documents": [
-          "holo-openreview",
           "holo-rebuttal",
+          "holo-openreview",
           "holo-paper"
         ]
       },
@@ -728,13 +726,14 @@
         "strategy": "hybrid",
         "document_rank": 1,
         "evidence_hint_found": true,
-        "latency_ms": 201.64,
+        "latency_ms": 259.22,
         "top_documents": [
           "agent-resume-docx",
-          "holo-rebuttal",
-          "mackv-openreview",
+          "quant-resume-pdf",
+          "holo-openreview",
+          "mackv-paper",
           "mackv-rebuttal",
-          "quant-resume-pdf"
+          "holo-paper"
         ]
       },
       {
@@ -745,13 +744,14 @@
         "strategy": "hybrid",
         "document_rank": 1,
         "evidence_hint_found": true,
-        "latency_ms": 206.07,
+        "latency_ms": 222.24,
         "top_documents": [
           "agent-resume-docx",
-          "holo-rebuttal",
-          "mackv-openreview",
           "quant-resume-pdf",
-          "mackv-rebuttal"
+          "mackv-paper",
+          "mackv-openreview",
+          "mackv-rebuttal",
+          "holo-openreview"
         ]
       },
       {
@@ -762,13 +762,13 @@
         "strategy": "hybrid",
         "document_rank": 1,
         "evidence_hint_found": true,
-        "latency_ms": 194.14,
+        "latency_ms": 227.48,
         "top_documents": [
           "quant-resume-pdf",
-          "holo-rebuttal",
           "agent-resume-docx",
-          "mackv-openreview",
-          "mackv-rebuttal"
+          "holo-paper",
+          "holo-openreview",
+          "mackv-paper"
         ]
       },
       {
@@ -777,12 +777,15 @@
         "relevant_document": "quant-resume-pdf",
         "evidence_hint": "Lloyd-Max",
         "strategy": "hybrid",
-        "document_rank": 999,
-        "evidence_hint_found": false,
-        "latency_ms": 199.85,
+        "document_rank": 1,
+        "evidence_hint_found": true,
+        "latency_ms": 210.83,
         "top_documents": [
-          "mackv-paper",
-          "mackv-openreview"
+          "quant-resume-pdf",
+          "agent-resume-docx",
+          "holo-openreview",
+          "holo-paper",
+          "mackv-paper"
         ]
       }
     ]

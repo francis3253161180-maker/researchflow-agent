@@ -147,7 +147,7 @@ flowchart TB
     VECTOR[Vector ranking]
     RRF[Reciprocal Rank Fusion]
     TOPK[Top K evidence]
-    RERANK[Optional future reranker]
+    RERANK[Optional BGE reranker]
 
     QUERY --> TOKEN --> BM25
     QUERY --> QEMB --> VECTOR
@@ -157,7 +157,7 @@ flowchart TB
     TOPK -. future .-> RERANK
 ```
 
-关系：BM25擅长精确术语，embedding擅长语义近似，RRF融合排名；reranker 当前未实现，不能写成已有功能。
+关系：BM25擅长精确术语，embedding擅长语义近似，RRF融合排名；BGE reranker 已实现为可选第二阶段，但受当前 CPU 延迟约束，默认关闭。
 
 ## 图 8：回答、引用与评测
 
