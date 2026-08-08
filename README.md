@@ -144,6 +144,7 @@ tests/              # 单元和 API 端到端测试
 - [架构、执行流程与设计取舍](docs/architecture-and-decisions.md)：组件职责、LangGraph 状态流、检索链路、验证边界与生产演进路径。
 - [学习与面试路径](docs/learning-path.md)：2–3 天动手学习安排和 90 秒项目讲解脚本。
 - [周末学习冲刺](docs/weekend-study-guide.md)：周六运行与走读、周日失败案例与修改、周一投递检查。
+- [文件地图与精读优先级](docs/file-map.md)：逐文件职责、两天内的 P0/P1/P2 阅读深度与注释原则。
 - [代码走读](docs/code-walkthrough.md)：从 FastAPI 请求到 LangGraph、检索、模型、校验和 SQLite 的逐步追踪。
 - [技术栈核心与高频知识点](docs/technical-stack-handbook.md)：Python、FastAPI、LangGraph、Agent、RAG、检索、数据库、Docker、CI 与测试。
 - [高频面试问题](docs/interview-questions.md)：36 个项目追问及边界清楚的回答框架。

@@ -4,6 +4,7 @@
 
 如果只安排周末两天，先使用 [周末学习冲刺](weekend-study-guide.md)。学习过程中配合：
 
+- [文件地图](file-map.md)：决定哪些文件精读、哪些只需理解职责；
 - [代码走读](code-walkthrough.md)：跟踪一次请求；
 - [技术栈手册](technical-stack-handbook.md)：补核心与高频知识；
 - [面试问题集](interview-questions.md)：检验表达；
