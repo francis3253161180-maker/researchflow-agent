@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import httpx
+import time
 
 from app.config import Settings
 
@@ -10,6 +11,7 @@ class LLMClient:
         self.base_url = settings.llm_base_url.rstrip("/")
         self.api_key = settings.llm_api_key
         self.model = settings.llm_model
+        self.thinking = settings.llm_thinking if settings.llm_thinking in {"enabled", "disabled"} else "disabled"
 
     @property
     def configured(self) -> bool:
@@ -45,14 +47,26 @@ class LLMClient:
             }
         )
         headers = {"Authorization": f"Bearer {self.api_key}"} if self.api_key else {}
-        response = httpx.post(
-            f"{self.base_url}/chat/completions",
-            headers=headers,
-            json={"model": self.model, "messages": messages, "temperature": 0.1, "max_tokens": 1200},
-            timeout=60,
-        )
-        response.raise_for_status()
-        return response.json()["choices"][0]["message"]["content"].strip()
+        payload = {
+            "model": self.model,
+            "messages": messages,
+            "temperature": 0.1,
+            "max_tokens": 1200,
+            "thinking": {"type": self.thinking},
+        }
+        last_error: Exception | None = None
+        for attempt in range(3):
+            try:
+                response = httpx.post(
+                    f"{self.base_url}/chat/completions", headers=headers, json=payload, timeout=60
+                )
+                response.raise_for_status()
+                return response.json()["choices"][0]["message"]["content"].strip()
+            except (httpx.RequestError, httpx.HTTPStatusError) as exc:
+                last_error = exc
+                if attempt < 2:
+                    time.sleep(attempt + 1)
+        raise RuntimeError("LLM request failed after 3 attempts") from last_error
 
     @staticmethod
     def _offline_generate(query: str, contexts: list[dict], tool_result: str) -> str:

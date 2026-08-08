@@ -16,6 +16,7 @@ def test_rag_route_returns_citations_and_persists_memory(tmp_path):
     assert result["route"] == "rag"
     assert result["verified"] is True
     assert result["citations"]
+    assert len(result["citations"]) == len(result["retrieved"])
     assert len(service.db.get_messages("session_test")) == 2
     assert service.db.get_run(result["run_id"]) is not None
 

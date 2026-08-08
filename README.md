@@ -69,6 +69,10 @@ FASTEMBED_MODEL=sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2
 # 设置后会默认使用 https://api.deepseek.com 与 deepseek-v4-flash
 DEEPSEEK_API_KEY=your_key_here
 
+# DeepSeek V4 默认关闭思考模式，以降低 RAG 问答的延迟并避免裁判型 JSON 输出被 reasoning 占满。
+# 需要复杂推理时可改为 enabled。
+LLM_THINKING=disabled
+
 # 可选：保护全部 /api/* 路由
 RESEARCHFLOW_APP_API_KEY=choose-a-strong-local-key
 ```
@@ -149,6 +153,8 @@ python scripts/run_eval.py --corpus-dir .. --embedding-provider fastembed
 这组语料的专有方法名与问题文本高度重合，因此词法检索在 Recall@1 上最优；Hybrid 的价值在于 FastEmbed 条件下提高 Recall@2，代价是 CPU embedding 延迟。该结果说明应按语料分布选择检索策略，不能预设 RRF 一定获胜。完整协议、问题标签、原始结果与失败分析见 [论文检索评测说明](docs/paper-retrieval-evaluation.md)。
 
 另有一份 [本地多语种真实文档评测](docs/portfolio-multilingual-evaluation.md)：它使用用户提供的论文、rebuttal、OpenReview、DOCX 和 PDF 简历，检验中文问题对中英文混合材料的检索边界。该语料不提交到仓库，结果不等同于通用企业 RAG 指标。
+
+在此基础上，[本地真实文档端到端问答评测](docs/portfolio-answer-evaluation.md) 进一步验证“检索 → 生成 → 引用 → 拒答”链路；它明确区分参考要点覆盖、引用编号有效性、证据支撑和拒答正确性，不将检索召回率误称为答案准确率。
 
 ## 项目结构
 

@@ -77,7 +77,10 @@ def build_graph(db: Database, retriever: HybridRetriever, llm: LLMClient):
             errors = state.get("errors", [])
             if error_code not in errors:
                 errors = [*errors, error_code]
-        citations = contexts[:3] if contexts else []
+        # The prompt numbers every retrieved context. Return the same complete
+        # list to clients so a model citation such as [4] never points outside
+        # the displayed citation inventory.
+        citations = contexts
         return {
             "answer": answer,
             "citations": citations,

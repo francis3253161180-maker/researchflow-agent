@@ -7,4 +7,5 @@ __pycache__/
 data/*
 !data/.gitkeep
 .env
+evals/results/portfolio_answer_eval*.json
 *.db
