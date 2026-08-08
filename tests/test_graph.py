@@ -61,3 +61,19 @@ def test_model_failure_is_sanitized_and_persisted_in_run_trace(tmp_path):
     assert result["errors"] == ["llm_error: RuntimeError"]
     assert persisted is not None
     assert persisted["errors"] == ["llm_error: RuntimeError"]
+
+
+def test_empty_model_response_is_sanitized_instead_of_rendered_as_blank(tmp_path):
+    class EmptyLLM:
+        def generate(self, query, contexts, memory, tool_result=""):
+            raise RuntimeError("LLM returned an empty final response")
+
+    db = Database(str(tmp_path / "empty-response.db"))
+    retriever = HybridRetriever(db, HashEmbedding())
+    retriever.ingest("evidence", "unit-test", "The corpus contains a factual evidence chunk.")
+    graph = build_graph(db, retriever, EmptyLLM())
+
+    result = graph.invoke(initial_state("session_empty", "What evidence exists?"), {"recursion_limit": 12})
+
+    assert result["answer"].strip()
+    assert result["errors"] == ["llm_error: RuntimeError"]

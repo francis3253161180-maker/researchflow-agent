@@ -61,7 +61,10 @@ class LLMClient:
                     f"{self.base_url}/chat/completions", headers=headers, json=payload, timeout=60
                 )
                 response.raise_for_status()
-                return response.json()["choices"][0]["message"]["content"].strip()
+                content = response.json()["choices"][0]["message"].get("content")
+                if not isinstance(content, str) or not content.strip():
+                    raise RuntimeError("LLM returned an empty final response")
+                return content.strip()
             except (httpx.RequestError, httpx.HTTPStatusError) as exc:
                 last_error = exc
                 if attempt < 2:
