@@ -36,17 +36,31 @@ def _normalize(text: str) -> str:
 def _markdown_blocks(text: str) -> list[TextBlock]:
     blocks: list[TextBlock] = []
     current_section = ""
+    section_root = ""
     buffer: list[str] = []
+
+    def flush() -> None:
+        nonlocal buffer
+        if buffer:
+            blocks.append(TextBlock(_normalize("\n".join(buffer)), section=current_section or None))
+            buffer = []
+
     for line in text.splitlines():
         if line.lstrip().startswith("#"):
-            if buffer:
-                blocks.append(TextBlock(_normalize("\n".join(buffer)), section=current_section or None))
-                buffer = []
+            flush()
             current_section = line.lstrip("# ").strip()
+            section_root = current_section
+        elif match := re.fullmatch(r"\[(Strengths|Weaknesses)\]\s*", line.strip(), flags=re.IGNORECASE):
+            # OpenReview exports put these labels inside a review body, not in
+            # Markdown headings. Promote them to sub-sections so evidence for
+            # a reviewer's strengths cannot be mixed with weaknesses solely by
+            # chunk boundaries.
+            flush()
+            label = match.group(1).title()
+            current_section = f"{section_root} · {label}" if section_root else label
         else:
             buffer.append(line)
-    if buffer:
-        blocks.append(TextBlock(_normalize("\n".join(buffer)), section=current_section or None))
+    flush()
     return [block for block in blocks if block.content]
 
 

@@ -95,6 +95,8 @@ sequenceDiagram
 
 ResearchFlow 的 LangGraph 主链路仍直接调用进程内 `calculate()`；但项目同时提供独立 MCP Server，把检索、精确引用回查、计算和文档清单开放给外部 Host。MCP 的价值是跨进程、跨 Host 的标准发现、参数 schema 和权限边界，而不是取代 LangGraph planner。
 
+对于 OpenReview 导出的英文 Markdown，检索层还会对“优势 / 不足 / 评分 / 元审”等少量中文评审问法补充对应的 `Strengths`、`Weaknesses`、`Rating`、`Metareview` 字段词，并在查询含稀有 reviewer ID 时优先同一标题章节。它是可解释的结构化文档适配，不是跨语言向量模型或 GraphRAG 的替代品。
+
 ## 6. 代码框架与 Dify/Coze
 
 | 维度 | 代码框架 | Dify/Coze |

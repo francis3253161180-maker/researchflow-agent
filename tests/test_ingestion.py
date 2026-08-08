@@ -43,6 +43,19 @@ def test_markdown_parser_preserves_sections():
     assert [block.section for block in parsed.blocks] == ["Method", "Evaluation"]
 
 
+def test_openreview_strengths_and_weaknesses_become_distinct_subsections():
+    parsed = parse_upload(
+        "openreview.md",
+        b"### Official Review by Reviewer jueW\nSummary: overview.\n\n[Strengths]\nClear method.\n\n[Weaknesses]\nSmall evaluation.",
+    )
+
+    assert [block.section for block in parsed.blocks] == [
+        "Official Review by Reviewer jueW",
+        "Official Review by Reviewer jueW · Strengths",
+        "Official Review by Reviewer jueW · Weaknesses",
+    ]
+
+
 def test_docx_parser_extracts_paragraphs():
     document = Document()
     document.add_heading("Paper Notes", level=1)

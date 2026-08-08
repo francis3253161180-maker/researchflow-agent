@@ -1,4 +1,5 @@
 from app.config import Settings
+from app.ingestion import TextBlock
 from app.service import ResearchFlowService
 
 
@@ -24,3 +25,29 @@ def test_document_chunking_creates_multiple_chunks(tmp_path):
     document_id, count = service.ingest("long", "unit-test", ("第一段实验结论。" * 100) + "\n\n" + ("第二段方法设计。" * 100))
     assert document_id.startswith("doc_")
     assert count >= 2
+
+
+def test_markdown_section_context_keeps_reviewer_identity_across_chunks(tmp_path):
+    service = make_service(tmp_path)
+    reviewer_section = "Official Review of Submission13481 by Reviewer jueW"
+    blocks = [
+        TextBlock(
+            "Summary: MAC-KV addresses KV cache memory bottlenecks.\n\n"
+            "Strengths: The reviewer credits the symmetric codebook, heterogeneous outlier protection, "
+            "and fused CUDA kernel for a strong engineering effort.",
+            section=f"{reviewer_section} · Strengths",
+        )
+    ]
+    service.retriever.ingest(
+        "OpenReview record",
+        "unit-test",
+        "\n\n".join(block.content for block in blocks),
+        blocks=blocks,
+    )
+
+    results = service.retriever.search("Reviewer jueW 论文有哪些优势", top_k=4)
+
+    assert results
+    assert any("Strengths:" in result.content for result in results)
+    assert all(reviewer_section in result.content for result in results)
+    assert results[0].section == f"{reviewer_section} · Strengths"

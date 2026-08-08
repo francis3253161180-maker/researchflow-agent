@@ -15,10 +15,33 @@ from app.ingestion import TextBlock
 
 
 TOKEN_PATTERN = re.compile(r"[a-zA-Z0-9_]+|[\u4e00-\u9fff]")
+REVIEW_QUERY_EXPANSIONS = {
+    "优势": "Strengths strength",
+    "优点": "Strengths strength",
+    "缺点": "Weaknesses weakness",
+    "不足": "Weaknesses weakness limitations",
+    "问题": "Questions weaknesses",
+    "评分": "Rating score",
+    "打分": "Rating score",
+    "总结": "Summary",
+    "元审": "Metareview Meta Review",
+}
 
 
 def tokenize(text: str) -> list[str]:
     return TOKEN_PATTERN.findall(text.lower())
+
+
+def expand_review_query(query: str) -> str:
+    """Add a few transparent bilingual anchors for OpenReview-style questions.
+
+    This is intentionally a small retrieval-time heuristic, not a claim of
+    cross-lingual embedding capability. It lets a Chinese query such as
+    “某位 reviewer 的优势” match the explicit ``Strengths`` field in a
+    downloaded English review record while retaining the user's original query.
+    """
+    additions = [value for phrase, value in REVIEW_QUERY_EXPANSIONS.items() if phrase in query]
+    return f"{query} {' '.join(additions)}".strip()
 
 
 def chunk_text(text: str, max_chars: int = 620, overlap: int = 80) -> list[str]:
@@ -177,7 +200,14 @@ def chunk_blocks(blocks: list[TextBlock]) -> list[ChunkRecord]:
     for block in blocks:
         for content in chunk_text(block.content):
             if content:
-                records.append(ChunkRecord(content=content, page=block.page, section=block.section))
+                # A long Markdown section (for example, an OpenReview review) is
+                # split into several chunks. Repeating its heading preserves the
+                # reviewer / experiment / method identity for every chunk, instead
+                # of making only the first chunk retrievable by that identity.
+                contextual_content = (
+                    f"[Section: {block.section}]\n{content}" if block.section else content
+                )
+                records.append(ChunkRecord(content=contextual_content, page=block.page, section=block.section))
     return records
 
 
@@ -219,7 +249,9 @@ class HybridRetriever:
         chunks = self.db.list_chunks()
         if not chunks:
             return []
-        query_tokens = tokenize(query)
+        original_query_tokens = tokenize(query)
+        expanded_query = expand_review_query(query)
+        query_tokens = tokenize(expanded_query)
         query_counts = Counter(query_tokens)
         tokenized = [tokenize(chunk["content"]) for chunk in chunks]
         document_frequency = Counter()
@@ -254,7 +286,35 @@ class HybridRetriever:
             "dense": vector_scores,
             "hybrid": fused,
         }[strategy]
-        ranked = sorted(range(n_docs), key=lambda i: scores[i], reverse=True)[:top_k]
+        ranked = sorted(range(n_docs), key=lambda i: scores[i], reverse=True)
+
+        # For structured Markdown, an uncommon identifier in a heading (such
+        # as an OpenReview reviewer ID) is stronger evidence than a generic
+        # match on "reviewer" or a navigation label. Keep matches from that
+        # section together before taking top_k, while preserving score order
+        # inside the section.
+        sections = [str(chunk.get("section") or "").lower() for chunk in chunks]
+        anchor_tokens = []
+        for token in set(original_query_tokens):
+            if len(token) < 3:
+                continue
+            occurrences = sum(token in section for section in sections)
+            if 0 < occurrences < max(2, n_docs // 2):
+                anchor_tokens.append(token)
+        intent_terms = [
+            token
+            for token in set(query_tokens) - set(original_query_tokens)
+            if len(token) >= 3 and any(token in section for section in sections)
+        ]
+        if anchor_tokens:
+            ranked.sort(
+                key=lambda index: (
+                    not all(token in sections[index] for token in anchor_tokens),
+                    not any(token in sections[index] for token in intent_terms),
+                    -scores[index],
+                )
+            )
+        ranked = ranked[:top_k]
         return [
             SearchResult(
                 chunk_id=chunks[i]["id"],
