@@ -123,7 +123,28 @@ python scripts/run_eval.py --embedding-provider hash
 python scripts/run_eval.py --embedding-provider fastembed
 ```
 
-当前本机结果：18 项测试全部通过；其中包含 MCP `stdio` 客户端与独立 Server 的端到端握手、工具发现和调用。8 条**受控回归样例**在两种向量后端下均完成检索命中、引用生成和校验（8/8）。GitHub Actions 会在 push/PR 时运行测试并从 Dockerfile 构建镜像。该数据集验证的是项目链路和回归行为，样例内容来自本项目功能说明，**不代表真实企业语料上的准确率、召回率或幻觉率**。后续迭代应以人工标注的公开论文/业务文档评测集补充 Recall@K、nDCG、引用忠实度和失败类型分析。
+当前本机结果：18 项测试全部通过；其中包含 MCP `stdio` 客户端与独立 Server 的端到端握手、工具发现和调用。8 条**受控回归样例**在两种向量后端下均完成检索命中、引用生成和校验（8/8）。GitHub Actions 会在 push/PR 时运行测试并从 Dockerfile 构建镜像。该数据集验证的是项目链路和回归行为，样例内容来自本项目功能说明，**不代表真实企业语料上的准确率、召回率或幻觉率**。
+
+### 小规模论文检索评测
+
+新增一套可复现的**文档级检索**评测：4 篇本地提供的公开科研论文、16 条人工标注问题；同一问题分别比较 BM25 风格词法检索、CPU Dense Retrieval 与 Hybrid + RRF。相关论文只是语料来源，ResearchFlow 不复现、也不与其中的 GraphRAG / 多跳方法比较。
+
+```powershell
+# 默认从项目父目录读取四篇 PDF；结果会写入 evals/results/
+python scripts/run_eval.py --corpus-dir .. --embedding-provider hash
+python scripts/run_eval.py --corpus-dir .. --embedding-provider fastembed
+```
+
+| 后端 / 策略 | Recall@1 | Recall@2 | MRR@4 | 平均检索延迟 |
+| --- | ---: | ---: | ---: | ---: |
+| Hash + Lexical | 1.0000 | 1.0000 | 1.0000 | 86.27 ms |
+| Hash + Dense | 0.7500 | 0.8750 | 0.8490 | 92.10 ms |
+| Hash + Hybrid RRF | 0.8750 | 0.8750 | 0.9167 | 86.96 ms |
+| FastEmbed + Lexical | 1.0000 | 1.0000 | 1.0000 | 1077.73 ms |
+| FastEmbed + Dense | 0.5000 | 0.7500 | 0.6979 | 1081.76 ms |
+| FastEmbed + Hybrid RRF | 0.7500 | 0.9375 | 0.8646 | 1021.29 ms |
+
+这组语料的专有方法名与问题文本高度重合，因此词法检索在 Recall@1 上最优；Hybrid 的价值在于 FastEmbed 条件下提高 Recall@2，代价是 CPU embedding 延迟。该结果说明应按语料分布选择检索策略，不能预设 RRF 一定获胜。完整协议、问题标签、原始结果与失败分析见 [论文检索评测说明](docs/paper-retrieval-evaluation.md)。
 
 ## 项目结构
 

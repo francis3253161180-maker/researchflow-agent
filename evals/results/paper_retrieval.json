@@ -1,0 +1,381 @@
+{
+  "protocol": {
+    "corpus": "4 locally supplied public research-paper PDFs",
+    "queries": "16 manually labelled document-retrieval questions",
+    "unit_of_relevance": "source paper, deduplicated across retrieved chunks",
+    "strategies": [
+      "lexical",
+      "dense",
+      "hybrid"
+    ],
+    "warning": "This evaluates ResearchFlow retrieval only; it is not a reproduction or comparison of the papers' methods."
+  },
+  "embedding_provider": "hash",
+  "summary": {
+    "lexical": {
+      "queries": 16,
+      "recall_at_1": 1.0,
+      "recall_at_2": 1.0,
+      "mrr_at_4": 1.0,
+      "mean_latency_ms": 86.27
+    },
+    "dense": {
+      "queries": 16,
+      "recall_at_1": 0.75,
+      "recall_at_2": 0.875,
+      "mrr_at_4": 0.849,
+      "mean_latency_ms": 92.1
+    },
+    "hybrid": {
+      "queries": 16,
+      "recall_at_1": 0.875,
+      "recall_at_2": 0.875,
+      "mrr_at_4": 0.9167,
+      "mean_latency_ms": 86.96
+    }
+  },
+  "details": {
+    "lexical": [
+      {
+        "id": "cwagraph_01",
+        "query": "Which paper studies adaptive community selection for graph-based retrieval?",
+        "target": "CWA-GRAPH",
+        "rank": 1,
+        "latency_ms": 87.07
+      },
+      {
+        "id": "cwagraph_02",
+        "query": "Which work focuses on retrieving the right community under query ambiguity in GraphRAG?",
+        "target": "CWA-GRAPH",
+        "rank": 1,
+        "latency_ms": 87.19
+      },
+      {
+        "id": "cwagraph_03",
+        "query": "Which paper asks what a GraphRAG system should retrieve from community structure?",
+        "target": "CWA-GRAPH",
+        "rank": 1,
+        "latency_ms": 85.72
+      },
+      {
+        "id": "cwagraph_04",
+        "query": "Find the work about community-aware graph retrieval rather than generic passage retrieval.",
+        "target": "CWA-GRAPH",
+        "rank": 1,
+        "latency_ms": 87.15
+      },
+      {
+        "id": "sar_01",
+        "query": "Which paper proposes structural alignment retrieval for unified information extraction?",
+        "target": "SAR-UIE",
+        "rank": 1,
+        "latency_ms": 91.73
+      },
+      {
+        "id": "sar_02",
+        "query": "Find the work that combines dependency and constituency structure for retrieval embeddings.",
+        "target": "SAR-UIE",
+        "rank": 1,
+        "latency_ms": 85.96
+      },
+      {
+        "id": "sar_03",
+        "query": "Which approach improves in-context examples by considering structural compatibility?",
+        "target": "SAR-UIE",
+        "rank": 1,
+        "latency_ms": 86.85
+      },
+      {
+        "id": "sar_04",
+        "query": "Which paper evaluates NER, relation extraction, and event extraction across Chinese and English benchmarks?",
+        "target": "SAR-UIE",
+        "rank": 1,
+        "latency_ms": 84.8
+      },
+      {
+        "id": "eres_01",
+        "query": "Which paper uses triple placeholder resolution for multi-hop question answering?",
+        "target": "ERES-FROG",
+        "rank": 1,
+        "latency_ms": 85.68
+      },
+      {
+        "id": "eres_02",
+        "query": "Find the method named Extract Resolve Enrich Summarize for knowledge graph question answering.",
+        "target": "ERES-FROG",
+        "rank": 1,
+        "latency_ms": 87.06
+      },
+      {
+        "id": "eres_03",
+        "query": "Which framework builds entity-centric summaries to preserve multi-hop evidence?",
+        "target": "ERES-FROG",
+        "rank": 1,
+        "latency_ms": 85.15
+      },
+      {
+        "id": "eres_04",
+        "query": "Which work decomposes translated queries into triple-like structures with anchors and placeholders?",
+        "target": "ERES-FROG",
+        "rank": 1,
+        "latency_ms": 85.16
+      },
+      {
+        "id": "topor_01",
+        "query": "Which paper proposes topology-first knowledge selection for Graph RAG?",
+        "target": "TopoR",
+        "rank": 1,
+        "latency_ms": 83.97
+      },
+      {
+        "id": "topor_02",
+        "query": "Find the work that uses direction-aware branching entropy before semantic filtering.",
+        "target": "TopoR",
+        "rank": 1,
+        "latency_ms": 83.91
+      },
+      {
+        "id": "topor_03",
+        "query": "Which method selects a compact candidate subgraph under a fixed triple budget?",
+        "target": "TopoR",
+        "rank": 1,
+        "latency_ms": 85.64
+      },
+      {
+        "id": "topor_04",
+        "query": "Which paper addresses hub entities and generic relations causing noisy graph expansion?",
+        "target": "TopoR",
+        "rank": 1,
+        "latency_ms": 87.34
+      }
+    ],
+    "dense": [
+      {
+        "id": "cwagraph_01",
+        "query": "Which paper studies adaptive community selection for graph-based retrieval?",
+        "target": "CWA-GRAPH",
+        "rank": 1,
+        "latency_ms": 86.69
+      },
+      {
+        "id": "cwagraph_02",
+        "query": "Which work focuses on retrieving the right community under query ambiguity in GraphRAG?",
+        "target": "CWA-GRAPH",
+        "rank": 1,
+        "latency_ms": 86.36
+      },
+      {
+        "id": "cwagraph_03",
+        "query": "Which paper asks what a GraphRAG system should retrieve from community structure?",
+        "target": "CWA-GRAPH",
+        "rank": 2,
+        "latency_ms": 85.24
+      },
+      {
+        "id": "cwagraph_04",
+        "query": "Find the work about community-aware graph retrieval rather than generic passage retrieval.",
+        "target": "CWA-GRAPH",
+        "rank": 3,
+        "latency_ms": 97.21
+      },
+      {
+        "id": "sar_01",
+        "query": "Which paper proposes structural alignment retrieval for unified information extraction?",
+        "target": "SAR-UIE",
+        "rank": 1,
+        "latency_ms": 89.02
+      },
+      {
+        "id": "sar_02",
+        "query": "Find the work that combines dependency and constituency structure for retrieval embeddings.",
+        "target": "SAR-UIE",
+        "rank": 4,
+        "latency_ms": 90.38
+      },
+      {
+        "id": "sar_03",
+        "query": "Which approach improves in-context examples by considering structural compatibility?",
+        "target": "SAR-UIE",
+        "rank": 1,
+        "latency_ms": 83.35
+      },
+      {
+        "id": "sar_04",
+        "query": "Which paper evaluates NER, relation extraction, and event extraction across Chinese and English benchmarks?",
+        "target": "SAR-UIE",
+        "rank": 1,
+        "latency_ms": 86.63
+      },
+      {
+        "id": "eres_01",
+        "query": "Which paper uses triple placeholder resolution for multi-hop question answering?",
+        "target": "ERES-FROG",
+        "rank": 1,
+        "latency_ms": 90.12
+      },
+      {
+        "id": "eres_02",
+        "query": "Find the method named Extract Resolve Enrich Summarize for knowledge graph question answering.",
+        "target": "ERES-FROG",
+        "rank": 1,
+        "latency_ms": 87.97
+      },
+      {
+        "id": "eres_03",
+        "query": "Which framework builds entity-centric summaries to preserve multi-hop evidence?",
+        "target": "ERES-FROG",
+        "rank": 1,
+        "latency_ms": 88.2
+      },
+      {
+        "id": "eres_04",
+        "query": "Which work decomposes translated queries into triple-like structures with anchors and placeholders?",
+        "target": "ERES-FROG",
+        "rank": 1,
+        "latency_ms": 87.08
+      },
+      {
+        "id": "topor_01",
+        "query": "Which paper proposes topology-first knowledge selection for Graph RAG?",
+        "target": "TopoR",
+        "rank": 1,
+        "latency_ms": 85.54
+      },
+      {
+        "id": "topor_02",
+        "query": "Find the work that uses direction-aware branching entropy before semantic filtering.",
+        "target": "TopoR",
+        "rank": 1,
+        "latency_ms": 86.16
+      },
+      {
+        "id": "topor_03",
+        "query": "Which method selects a compact candidate subgraph under a fixed triple budget?",
+        "target": "TopoR",
+        "rank": 1,
+        "latency_ms": 87.07
+      },
+      {
+        "id": "topor_04",
+        "query": "Which paper addresses hub entities and generic relations causing noisy graph expansion?",
+        "target": "TopoR",
+        "rank": 2,
+        "latency_ms": 156.59
+      }
+    ],
+    "hybrid": [
+      {
+        "id": "cwagraph_01",
+        "query": "Which paper studies adaptive community selection for graph-based retrieval?",
+        "target": "CWA-GRAPH",
+        "rank": 1,
+        "latency_ms": 91.74
+      },
+      {
+        "id": "cwagraph_02",
+        "query": "Which work focuses on retrieving the right community under query ambiguity in GraphRAG?",
+        "target": "CWA-GRAPH",
+        "rank": 3,
+        "latency_ms": 87.82
+      },
+      {
+        "id": "cwagraph_03",
+        "query": "Which paper asks what a GraphRAG system should retrieve from community structure?",
+        "target": "CWA-GRAPH",
+        "rank": 3,
+        "latency_ms": 87.36
+      },
+      {
+        "id": "cwagraph_04",
+        "query": "Find the work about community-aware graph retrieval rather than generic passage retrieval.",
+        "target": "CWA-GRAPH",
+        "rank": 1,
+        "latency_ms": 86.83
+      },
+      {
+        "id": "sar_01",
+        "query": "Which paper proposes structural alignment retrieval for unified information extraction?",
+        "target": "SAR-UIE",
+        "rank": 1,
+        "latency_ms": 84.51
+      },
+      {
+        "id": "sar_02",
+        "query": "Find the work that combines dependency and constituency structure for retrieval embeddings.",
+        "target": "SAR-UIE",
+        "rank": 1,
+        "latency_ms": 84.87
+      },
+      {
+        "id": "sar_03",
+        "query": "Which approach improves in-context examples by considering structural compatibility?",
+        "target": "SAR-UIE",
+        "rank": 1,
+        "latency_ms": 83.22
+      },
+      {
+        "id": "sar_04",
+        "query": "Which paper evaluates NER, relation extraction, and event extraction across Chinese and English benchmarks?",
+        "target": "SAR-UIE",
+        "rank": 1,
+        "latency_ms": 91.85
+      },
+      {
+        "id": "eres_01",
+        "query": "Which paper uses triple placeholder resolution for multi-hop question answering?",
+        "target": "ERES-FROG",
+        "rank": 1,
+        "latency_ms": 86.81
+      },
+      {
+        "id": "eres_02",
+        "query": "Find the method named Extract Resolve Enrich Summarize for knowledge graph question answering.",
+        "target": "ERES-FROG",
+        "rank": 1,
+        "latency_ms": 85.28
+      },
+      {
+        "id": "eres_03",
+        "query": "Which framework builds entity-centric summaries to preserve multi-hop evidence?",
+        "target": "ERES-FROG",
+        "rank": 1,
+        "latency_ms": 85.57
+      },
+      {
+        "id": "eres_04",
+        "query": "Which work decomposes translated queries into triple-like structures with anchors and placeholders?",
+        "target": "ERES-FROG",
+        "rank": 1,
+        "latency_ms": 84.15
+      },
+      {
+        "id": "topor_01",
+        "query": "Which paper proposes topology-first knowledge selection for Graph RAG?",
+        "target": "TopoR",
+        "rank": 1,
+        "latency_ms": 83.05
+      },
+      {
+        "id": "topor_02",
+        "query": "Find the work that uses direction-aware branching entropy before semantic filtering.",
+        "target": "TopoR",
+        "rank": 1,
+        "latency_ms": 86.48
+      },
+      {
+        "id": "topor_03",
+        "query": "Which method selects a compact candidate subgraph under a fixed triple budget?",
+        "target": "TopoR",
+        "rank": 1,
+        "latency_ms": 88.68
+      },
+      {
+        "id": "topor_04",
+        "query": "Which paper addresses hub entities and generic relations causing noisy graph expansion?",
+        "target": "TopoR",
+        "rank": 1,
+        "latency_ms": 93.21
+      }
+    ]
+  }
+}

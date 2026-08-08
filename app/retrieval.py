@@ -207,7 +207,15 @@ class HybridRetriever:
         )
         return document_id, count
 
-    def search(self, query: str, top_k: int = 4) -> list[SearchResult]:
+    def search(self, query: str, top_k: int = 4, strategy: str = "hybrid") -> list[SearchResult]:
+        """Search with lexical, dense, or reciprocal-rank-fused ranking.
+
+        ``strategy`` exists primarily to make evaluation comparisons honest:
+        the production default remains ``hybrid`` and no caller silently swaps
+        algorithms under the same metric.
+        """
+        if strategy not in {"lexical", "dense", "hybrid"}:
+            raise ValueError("strategy must be lexical, dense, or hybrid")
         chunks = self.db.list_chunks()
         if not chunks:
             return []
@@ -241,7 +249,12 @@ class HybridRetriever:
             1 / (60 + lexical_position[i]) + 1 / (60 + vector_position[i])
             for i in range(n_docs)
         ]
-        ranked = sorted(range(n_docs), key=lambda i: fused[i], reverse=True)[:top_k]
+        scores = {
+            "lexical": lexical_scores,
+            "dense": vector_scores,
+            "hybrid": fused,
+        }[strategy]
+        ranked = sorted(range(n_docs), key=lambda i: scores[i], reverse=True)[:top_k]
         return [
             SearchResult(
                 chunk_id=chunks[i]["id"],
@@ -249,7 +262,7 @@ class HybridRetriever:
                 title=chunks[i]["title"],
                 source=chunks[i]["source"],
                 content=chunks[i]["content"],
-                score=fused[i],
+                score=scores[i],
                 page=chunks[i].get("page"),
                 section=chunks[i].get("section"),
                 filename=chunks[i].get("filename", ""),
