@@ -16,15 +16,15 @@
 | 后端 / 策略 | Recall@1 | Recall@3 | MRR@6 | 前 4 chunk 证据提示命中 | 平均检索延迟 |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | Hash / Hybrid | 0.3125 | 0.8750 | 0.5833 | 0.5000 | 82.56 ms |
-| FastEmbed multilingual / Lexical | 0.4375 | 0.7500 | 0.5938 | 0.3750 | 239.86 ms |
-| FastEmbed multilingual / Dense | 0.5000 | 0.7500 | 0.6146 | 0.1875 | 232.48 ms |
-| FastEmbed multilingual / Hybrid | **0.8125** | **0.9375** | **0.8750** | **0.5625** | 230.41 ms |
+| FastEmbed multilingual / Lexical | 0.2500 | 0.6875 | 0.4531 | 0.2500 | 206.75 ms |
+| FastEmbed multilingual / Dense | 0.3750 | 0.7500 | 0.5417 | 0.1250 | 210.96 ms |
+| FastEmbed multilingual / Hybrid | **0.7500** | **0.9375** | **0.8333** | **0.5625** | 211.88 ms |
 
 模型为 `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2`，由 FastEmbed 在 CPU 上执行，首次下载后缓存于 `data/models`。Hash 是确定性测试基线，不具备跨语言语义能力。
 
 ## 结论与下一步
 
-1. 多语种 embedding + BM25/RRF 对中文问题检索英文科研材料有明确收益。
+1. 多语种 embedding + BM25/RRF 对中文问题检索英文科研材料有明确收益；这里没有使用面向特定文档字段、评审角色或关键词的排序规则。
 2. 正确文档被召回不等于前四个 chunk 已是最佳作答证据；当前 0.5625 的证据提示命中说明候选重排仍有空间。
 3. 下一步以这份固定问题集评估可选多语种 cross-encoder reranker；只有证据命中增益显著且 CPU 延迟可接受时，才作为默认选项。
 4. 切换 embedding provider/model 后必须删除旧文档并重新导入。

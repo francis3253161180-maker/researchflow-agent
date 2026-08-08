@@ -294,26 +294,6 @@ class HybridRetriever:
         }[strategy]
         ranked = sorted(range(n_docs), key=lambda i: scores[i], reverse=True)
 
-        # For structured Markdown, an uncommon identifier in a heading (such
-        # as an OpenReview reviewer ID) is stronger evidence than a generic
-        # match on "reviewer" or a navigation label. Keep matches from that
-        # section together before taking top_k, while preserving score order
-        # inside the section.
-        sections = [str(chunk.get("section") or "").lower() for chunk in chunks]
-        anchor_tokens = []
-        for token in set(query_tokens):
-            if len(token) < 3:
-                continue
-            occurrences = sum(token in section for section in sections)
-            if 0 < occurrences < max(2, n_docs // 2):
-                anchor_tokens.append(token)
-        if anchor_tokens:
-            ranked.sort(
-                key=lambda index: (
-                    not all(token in sections[index] for token in anchor_tokens),
-                    -scores[index],
-                )
-            )
         ranked = ranked[:top_k]
         return [
             SearchResult(
