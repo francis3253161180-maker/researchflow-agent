@@ -88,7 +88,7 @@ git status
 
 ## 面试的 90 秒版本
 
-> 我做了一个面向科研文档的本地 Agent/RAG 服务。它支持 PDF、DOCX、Markdown、TXT 导入，检索端采用词法检索和向量检索的 RRF 融合，并将 PDF 页码和 Markdown 分节作为引用元数据返回。Agent 用 LangGraph 拆成计划、检索/工具、回答、引用校验和持久化五类节点；当 RAG 答案没有有效引用时只会扩展查询重试一次，避免无界循环。服务通过 FastAPI 暴露，SQLite 保存会话和运行轨迹，默认离线可复现，也可通过环境变量接 DeepSeek。项目有 14 项测试、8 条受控回归样例，并在 GitHub Actions 中持续测试和构建 Docker 镜像。
+> 我做了一个面向科研文档的本地 Agent/RAG 服务。它支持 PDF、DOCX、Markdown、TXT 导入，检索端采用词法检索和向量检索的 RRF 融合，并将 PDF 页码和 Markdown 分节作为引用元数据返回。Agent 用 LangGraph 拆成计划、检索/工具、回答、引用校验和持久化五类节点；当 RAG 答案没有有效引用时只会扩展查询重试一次，避免无界循环。服务通过 FastAPI 暴露，SQLite 保存会话和运行轨迹，默认离线可复现，也可通过环境变量接 DeepSeek。同时用独立 MCP Server 向外部 Agent Host 暴露混合检索、精确引用回查和安全计算。项目有 18 项测试、8 条受控回归样例，并在 GitHub Actions 中持续测试和构建 Docker 镜像。
 
 接着准备两个追问：
 
@@ -98,7 +98,7 @@ git status
 ## 不应在面试中夸大的内容
 
 - 8/8 是受控项目回归集，不是企业场景准确率；
-- 14 项测试与 CI 证明基本工程质量，不等于生产级高并发能力；
+- 18 项测试与 CI 证明基本工程质量，不等于生产级高并发能力；
 - FastEmbed 是 CPU 语义向量能力，不等于做过 GPU 推理优化；
 - LangGraph 是编排框架，当前项目不是 Agent 强化学习/算法研究。
 

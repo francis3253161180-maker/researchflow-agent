@@ -13,9 +13,10 @@ def test_hybrid_retrieval_returns_relevant_chunk(tmp_path):
         "unit-test",
         "MAC-KV 使用自适应码本和 K/V 混合精度分配。该方法在低比特场景压缩 KV Cache 显存。",
     )
-    results = service.retriever.search("KV Cache 混合精度量化", top_k=2)
-    assert results
-    assert "混合精度" in results[0].content
+    for strategy in ("lexical", "dense", "hybrid"):
+        results = service.retriever.search("KV Cache 混合精度量化", top_k=2, strategy=strategy)
+        assert results
+        assert "混合精度" in results[0].content
 
 
 def test_document_chunking_creates_multiple_chunks(tmp_path):
@@ -23,4 +24,3 @@ def test_document_chunking_creates_multiple_chunks(tmp_path):
     document_id, count = service.ingest("long", "unit-test", ("第一段实验结论。" * 100) + "\n\n" + ("第二段方法设计。" * 100))
     assert document_id.startswith("doc_")
     assert count >= 2
-

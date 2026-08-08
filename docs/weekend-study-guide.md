@@ -165,7 +165,7 @@ git diff
 
 ### 90 秒版本
 
-> 普通 RAG demo 往往只能生成回答，缺少证据追溯、失败定位和可重复验证。我把系统拆成文档解析、混合检索、Agent 状态流、受限回答、引用校验和运行轨迹。FastAPI 负责服务边界；LangGraph 负责 `plan -> retrieve/tool -> answer -> verify -> persist`，引用标记缺失时只扩展查询重试一次。PDF 保留页码，Markdown 保留分节；BM25 和向量结果通过 RRF 融合。SQLite 保存会话和节点事件，默认离线可复现，也能通过环境变量接 DeepSeek。当前有 14 项测试和 8 条受控回归样例；这些证明链路可回归，但不代表真实业务准确率。
+> 普通 RAG demo 往往只能生成回答，缺少证据追溯、失败定位和可重复验证。我把系统拆成文档解析、混合检索、Agent 状态流、受限回答、引用校验和运行轨迹。FastAPI 负责服务边界；LangGraph 负责 `plan -> retrieve/tool -> answer -> verify -> persist`，引用标记缺失时只扩展查询重试一次。PDF 保留页码，Markdown 保留分节；BM25 和向量结果通过 RRF 融合。SQLite 保存会话和节点事件，默认离线可复现，也能通过环境变量接 DeepSeek。项目还有独立 MCP Server，向外部 Host 提供检索、引用回查和计算。当前有 18 项测试和 8 条受控回归样例；这些证明链路可回归，但不代表真实业务准确率。
 
 ### 5 分钟版本结构
 

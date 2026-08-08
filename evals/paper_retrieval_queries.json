@@ -1,0 +1,21 @@
+[
+  {"id":"cwagraph_01","query":"Which paper studies adaptive community selection for graph-based retrieval?","relevant_document":"CWA-GRAPH"},
+  {"id":"cwagraph_02","query":"Which work focuses on retrieving the right community under query ambiguity in GraphRAG?","relevant_document":"CWA-GRAPH"},
+  {"id":"cwagraph_03","query":"Which paper asks what a GraphRAG system should retrieve from community structure?","relevant_document":"CWA-GRAPH"},
+  {"id":"cwagraph_04","query":"Find the work about community-aware graph retrieval rather than generic passage retrieval.","relevant_document":"CWA-GRAPH"},
+
+  {"id":"sar_01","query":"Which paper proposes structural alignment retrieval for unified information extraction?","relevant_document":"SAR-UIE"},
+  {"id":"sar_02","query":"Find the work that combines dependency and constituency structure for retrieval embeddings.","relevant_document":"SAR-UIE"},
+  {"id":"sar_03","query":"Which approach improves in-context examples by considering structural compatibility?","relevant_document":"SAR-UIE"},
+  {"id":"sar_04","query":"Which paper evaluates NER, relation extraction, and event extraction across Chinese and English benchmarks?","relevant_document":"SAR-UIE"},
+
+  {"id":"eres_01","query":"Which paper uses triple placeholder resolution for multi-hop question answering?","relevant_document":"ERES-FROG"},
+  {"id":"eres_02","query":"Find the method named Extract Resolve Enrich Summarize for knowledge graph question answering.","relevant_document":"ERES-FROG"},
+  {"id":"eres_03","query":"Which framework builds entity-centric summaries to preserve multi-hop evidence?","relevant_document":"ERES-FROG"},
+  {"id":"eres_04","query":"Which work decomposes translated queries into triple-like structures with anchors and placeholders?","relevant_document":"ERES-FROG"},
+
+  {"id":"topor_01","query":"Which paper proposes topology-first knowledge selection for Graph RAG?","relevant_document":"TopoR"},
+  {"id":"topor_02","query":"Find the work that uses direction-aware branching entropy before semantic filtering.","relevant_document":"TopoR"},
+  {"id":"topor_03","query":"Which method selects a compact candidate subgraph under a fixed triple budget?","relevant_document":"TopoR"},
+  {"id":"topor_04","query":"Which paper addresses hub entities and generic relations causing noisy graph expansion?","relevant_document":"TopoR"}
+]

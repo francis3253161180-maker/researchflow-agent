@@ -18,6 +18,7 @@ dependencies = [
   "python-docx>=1.1,<2.0",
   "python-dotenv>=1.0,<2.0",
   "python-multipart>=0.0.9,<1.0",
+  "mcp[cli]>=2.0,<3.0",
 ]
 
 [project.optional-dependencies]
