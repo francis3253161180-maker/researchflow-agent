@@ -27,6 +27,7 @@ class DocumentSummary(BaseModel):
 class MetricsResponse(BaseModel):
     chunks: int
     llm_configured: bool
+    embedding_provider: str
     runs: int
     average_latency_ms: float
     verified_rate: float

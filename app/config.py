@@ -15,7 +15,7 @@ class Settings:
     embedding_api_key: str = ""
     embedding_model: str = ""
     embedding_provider: str = "hash"
-    fastembed_model: str = "BAAI/bge-small-zh-v1.5"
+    fastembed_model: str = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
     fastembed_cache_dir: str = "./data/models"
     app_api_key: str = ""
     max_upload_bytes: int = 15 * 1024 * 1024
@@ -35,7 +35,7 @@ class Settings:
             embedding_api_key=os.getenv("EMBEDDING_API_KEY", ""),
             embedding_model=os.getenv("EMBEDDING_MODEL", ""),
             embedding_provider=os.getenv("EMBEDDING_PROVIDER", "hash").lower(),
-            fastembed_model=os.getenv("FASTEMBED_MODEL", "BAAI/bge-small-zh-v1.5"),
+            fastembed_model=os.getenv("FASTEMBED_MODEL", "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"),
             fastembed_cache_dir=os.getenv("FASTEMBED_CACHE_DIR", "./data/models"),
             app_api_key=os.getenv("RESEARCHFLOW_APP_API_KEY", ""),
             max_upload_bytes=int(os.getenv("RESEARCHFLOW_MAX_UPLOAD_BYTES", str(15 * 1024 * 1024))),

@@ -58,12 +58,12 @@ uvicorn app.main:app --reload
 复制 `.env.example` 为 `.env`，再按需要配置。应用启动时会读取当前项目目录的 `.env`，但操作系统/容器传入的环境变量优先级更高。不要把 `.env`、密钥或真实私有文档提交到 Git。
 
 ```dotenv
-# 开发/回归测试：可完全离线
+# 开发/回归测试：可完全离线、确定性；不具备语义或中英跨语言检索能力
 EMBEDDING_PROVIDER=hash
 
-# CPU 语义检索：首次启用时下载模型至 data/models
+# CPU 多语种语义检索：首次启用时下载模型至 data/models；适用于中文问题检索英文论文
 EMBEDDING_PROVIDER=fastembed
-FASTEMBED_MODEL=BAAI/bge-small-zh-v1.5
+FASTEMBED_MODEL=sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2
 
 # 可选：DeepSeek OpenAI-compatible Chat Completions
 # 设置后会默认使用 https://api.deepseek.com 与 deepseek-v4-flash
@@ -73,7 +73,7 @@ DEEPSEEK_API_KEY=your_key_here
 RESEARCHFLOW_APP_API_KEY=choose-a-strong-local-key
 ```
 
-如果设置了 `RESEARCHFLOW_APP_API_KEY`，调用 API 时需发送 `X-API-Key`。`/health` 保持开放，方便容器健康检查。
+如果设置了 `RESEARCHFLOW_APP_API_KEY`，调用 API 时需发送 `X-API-Key`。`/health` 保持开放，方便容器健康检查。切换 embedding provider 或模型后，已有文档的向量不能复用：请删除旧文档并重新导入。网页顶栏会显示当前检索后端；出现 `Hash 离线检索（不支持跨语言语义）` 时，不应期待中文问题能稳定命中英文证据。
 
 ### Docker Compose
 

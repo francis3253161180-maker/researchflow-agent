@@ -38,7 +38,12 @@ class ResearchFlowService:
         return self.db.delete_document(document_id)
 
     def metrics(self) -> dict:
-        return {"chunks": self.db.chunk_count(), "llm_configured": self.llm.configured, **self.db.run_summary()}
+        return {
+            "chunks": self.db.chunk_count(),
+            "llm_configured": self.llm.configured,
+            "embedding_provider": self.retriever.embeddings.__class__.__name__,
+            **self.db.run_summary(),
+        }
 
     def chat(self, query: str, session_id: str | None = None) -> dict:
         session_id = session_id or f"ses_{uuid4().hex[:12]}"

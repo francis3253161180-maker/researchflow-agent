@@ -45,7 +45,7 @@ def test_markdown_section_context_keeps_reviewer_identity_across_chunks(tmp_path
         blocks=blocks,
     )
 
-    results = service.retriever.search("Reviewer jueW 论文有哪些优势", top_k=4)
+    results = service.retriever.search("Reviewer jueW Strengths", top_k=4)
 
     assert results
     assert any("Strengths:" in result.content for result in results)
