@@ -72,5 +72,7 @@ def test_web_ui_exposes_upload_and_citation_surfaces(tmp_path):
         page = client.get("/")
         assert page.status_code == 200
         assert "uploadDocument" in page.text
+        assert "previewSelectedFile" in page.text
+        assert "上传并解析所选文件" in page.text
         assert "page-aware citations" not in page.text  # UI stays Chinese-facing
         assert "上传 PDF / DOCX / Markdown / TXT" in page.text
