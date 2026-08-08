@@ -33,9 +33,9 @@ python scripts/run_eval.py --corpus-dir .. --embedding-provider fastembed
 | Hash + Lexical | 1.0000 | 1.0000 | 1.0000 | 86.27 ms |
 | Hash + Dense | 0.7500 | 0.8750 | 0.8490 | 92.10 ms |
 | Hash + Hybrid RRF | 0.8750 | 0.8750 | 0.9167 | 86.96 ms |
-| FastEmbed + Lexical | 1.0000 | 1.0000 | 1.0000 | 1077.73 ms |
-| FastEmbed + Dense | 0.5000 | 0.7500 | 0.6979 | 1081.76 ms |
-| FastEmbed + Hybrid RRF | 0.7500 | 0.9375 | 0.8646 | 1021.29 ms |
+| FastEmbed + Lexical | 1.0000 | 1.0000 | 1.0000 | 651.50 ms |
+| FastEmbed + Dense | 0.6875 | 0.8750 | 0.8229 | 645.25 ms |
+| FastEmbed + Hybrid RRF | 0.7500 | 0.8125 | 0.7812 | 644.24 ms |
 
 ## 如何解读
 

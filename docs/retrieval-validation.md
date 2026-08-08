@@ -35,3 +35,9 @@ D:\ResearchFlow-runtime\Scripts\python.exe scripts\run_portfolio_multilingual_ev
 ```
 
 These are regression signals, not claims of enterprise-wide retrieval or answer accuracy. Changing an embedding model or the chunking implementation requires deleting and re-importing existing documents because stored vectors and chunks are not retroactively rebuilt.
+
+## Repository documentation regression corpus
+
+`tests/test_repository_docs_retrieval.py` indexes every versioned Markdown file under `docs/` with the deterministic offline test embedding. It asserts that the parser accepts the whole documentation corpus and that hybrid retrieval finds evidence in the MCP, FastAPI, LangGraph, SQLite, and retrieval-validation guides. This test runs as part of the ordinary `pytest` suite, so documentation retrieval regressions are caught without needing local private files.
+
+The separate `scripts/run_eval.py` evaluation parses four locally supplied public research-paper PDFs and reports document-level Recall@K/MRR. It is intentionally a local manual evaluation because the PDFs themselves are not committed to the repository.
