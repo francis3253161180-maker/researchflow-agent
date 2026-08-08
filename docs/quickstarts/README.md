@@ -11,7 +11,8 @@
 | 3 | [SQLite](sqlite.md) | 60–90 分钟 | 掌握 schema、事务、外键、索引、WAL 和扩展边界 |
 | 4 | [配套技术栈](supporting-stack.md) | 90–120 分钟 | 建立 Pydantic、Uvicorn、HTTPX、FastEmbed、pytest、Docker/CI 全景 |
 | 5 | [框架与组件边界](../framework-boundaries.md) | 30 分钟 | 能比较 LangGraph、LangChain、LlamaIndex、MCP、Dify/Coze 和 vLLM |
-| 6 | [知识关系图全集](../knowledge-maps.md) | 每阶段 5–10 分钟 | 复盘知识连接，不把关系图当成要背的定义 |
+| 6 | [MCP 集成](../mcp-integration.md) | 45–60 分钟 | 启动真实 Server，用 MCP Client 发现工具并调用可追溯检索 |
+| 7 | [知识关系图全集](../knowledge-maps.md) | 每阶段 5–10 分钟 | 复盘知识连接，不把关系图当成要背的定义 |
 
 ## 阅读方法
 

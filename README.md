@@ -19,7 +19,7 @@ ResearchFlow 不是只调用一次模型的聊天壳。它把文档解析、知�
 - **引用校验与重试**：RAG 回答必须有检索证据和 `[1]` 形式的引用标记；缺失时扩展查询并至多重试一次。
 - **可观测与会话记忆**：SQLite 持久化文档、分块、会话消息、路由、节点事件、校验状态、脱敏错误类型和延迟；网页可展开查看本次运行轨迹。
 - **安全边界**：上传文档被视为不可信证据而非指令；可选 `X-API-Key` 保护 `/api/*`；上传大小受服务端限制。
-- **可部署与可验证**：提供网页、OpenAPI、Docker Compose、14 项测试和小型离线回归评测。
+- **可部署与可验证**：提供网页、OpenAPI、Docker Compose、18 项测试和小型离线回归评测。
 
 ## 架构
 
@@ -93,6 +93,23 @@ docker compose up --build
 | `GET` | `/api/runs/{run_id}` | 回看路由、延迟、节点轨迹和校验状态 |
 | `GET` | `/api/metrics` | 查看文档分块、运行次数、平均延迟和校验率 |
 
+## MCP：向外部 Agent 提供可追溯检索
+
+除 Web UI / REST API 外，ResearchFlow 还提供独立的 **MCP Server**。它通过标准 MCP `stdio` 传输，把本地知识库能力提供给 Claude Desktop、Cursor 或其他支持 MCP 的 Host；MCP 进程与 FastAPI 服务分离，但读取同一份 SQLite 知识库。
+
+- `search_research_documents`：BM25 + 向量检索 + RRF，返回含 `chunk_id`、文档名、页码、章节和原文片段的可追溯结果；
+- `get_citation_context`：按 `chunk_id` 精确回查证据，避免二次检索造成引用漂移；
+- `calculate_expression`：复用 AST 限制的安全计算工具；
+- `researchflow://documents` Resource：列出当前已索引文档及运行统计。
+
+在项目根目录安装依赖后启动：
+
+```powershell
+.\.venv\Scripts\python.exe -m app.mcp_server
+```
+
+完整的桌面 Host 配置、权限边界、验证步骤与面试表述见 [MCP 集成手册](docs/mcp-integration.md)。MCP 只负责跨进程工具/资源发现与调用；检索链路、引用核验和 LangGraph 编排仍由 ResearchFlow 自身负责。
+
 ## 验证与评测
 
 ```powershell
@@ -106,7 +123,7 @@ python scripts/run_eval.py --embedding-provider hash
 python scripts/run_eval.py --embedding-provider fastembed
 ```
 
-当前本机结果：14 项测试全部通过；8 条**受控回归样例**在两种向量后端下均完成检索命中、引用生成和校验（8/8）。GitHub Actions 会在 push/PR 时运行测试并从 Dockerfile 构建镜像。该数据集验证的是项目链路和回归行为，样例内容来自本项目功能说明，**不代表真实企业语料上的准确率、召回率或幻觉率**。后续迭代应以人工标注的公开论文/业务文档评测集补充 Recall@K、nDCG、引用忠实度和失败类型分析。
+当前本机结果：18 项测试全部通过；其中包含 MCP `stdio` 客户端与独立 Server 的端到端握手、工具发现和调用。8 条**受控回归样例**在两种向量后端下均完成检索命中、引用生成和校验（8/8）。GitHub Actions 会在 push/PR 时运行测试并从 Dockerfile 构建镜像。该数据集验证的是项目链路和回归行为，样例内容来自本项目功能说明，**不代表真实企业语料上的准确率、召回率或幻觉率**。后续迭代应以人工标注的公开论文/业务文档评测集补充 Recall@K、nDCG、引用忠实度和失败类型分析。
 
 ## 项目结构
 
@@ -118,6 +135,7 @@ app/
   llm.py           # 离线回答与 OpenAI-compatible / DeepSeek 调用
   db.py             # SQLite schema、会话与运行轨迹
   main.py           # FastAPI 路由与可选 API key 保护
+  mcp_server.py     # 标准 MCP Server：检索、精确引用回查、计算与文档 Resource
   static/           # 无构建步骤的网页界面
 evals/              # 小型、边界清楚的回归数据
 tests/              # 单元和 API 端到端测试
@@ -139,7 +157,7 @@ FastAPI、LangGraph、SQLite 与配套框架的核心入门材料统一放在 [�
 1. **问题**：普通 RAG demo 缺少证据追溯、失败定位和可重复验证。
 2. **方案**：将 Agent 拆成检索/工具路由、引用约束、校验重试和 SQLite 运行轨迹，并以 LangGraph 显式编排。
 3. **工程取舍**：默认离线保证测试和演示可复现；可选 FastEmbed 在 CPU 上完成语义检索；真实 LLM 通过环境变量注入，密钥不入库。
-4. **证据**：上传、引用页码/分节、API 防护、14 项测试和受控回归评测均有对应代码；后续需要在真实标注语料上补充检索/忠实度指标。
+4. **证据**：上传、引用页码/分节、API 防护、18 项测试、MCP 端到端调用和受控回归评测均有对应代码；后续需要在真实标注语料上补充检索/忠实度指标。
 
 ## 深入阅读
 
@@ -150,6 +168,7 @@ FastAPI、LangGraph、SQLite 与配套框架的核心入门材料统一放在 [�
 - [快速入门手册](docs/quickstarts/README.md)：FastAPI、LangGraph、SQLite 及配套栈的核心原理、高频题和项目验收。
 - [知识关系图全集](docs/knowledge-maps.md)：API、编排、RAG、持久化、LLM、测试部署及算法扩展的组件关系图。
 - [Agent 框架与组件边界](docs/framework-boundaries.md)：LangGraph、LangChain、LlamaIndex、MCP、Dify/Coze 与 vLLM 的定位和选型。
+- [MCP 集成手册](docs/mcp-integration.md)：MCP Host / Client / Server 边界、实际工具、桌面 Host 配置、测试与高频面试题。
 - [代码走读](docs/code-walkthrough.md)：从 FastAPI 请求到 LangGraph、检索、模型、校验和 SQLite 的逐步追踪。
 - [技术栈核心与高频知识点](docs/technical-stack-handbook.md)：Python、FastAPI、LangGraph、Agent、RAG、检索、数据库、Docker、CI 与测试。
 - [高频面试问题](docs/interview-questions.md)：36 个项目追问及边界清楚的回答框架。

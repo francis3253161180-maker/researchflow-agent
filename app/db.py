@@ -139,6 +139,20 @@ class Database:
             for row in rows
         ]
 
+    def get_chunk(self, chunk_id: str) -> dict[str, Any] | None:
+        """Look up one chunk for citation verification without re-running retrieval."""
+        with self.connect() as conn:
+            row = conn.execute(
+                """
+                SELECT c.id AS chunk_id, c.document_id, c.position, c.content, c.page, c.section,
+                       d.title, d.source, d.filename, d.media_type
+                FROM chunks c JOIN documents d ON d.id = c.document_id
+                WHERE c.id = ?
+                """,
+                (chunk_id,),
+            ).fetchone()
+        return dict(row) if row else None
+
     def chunk_count(self) -> int:
         with self.connect() as conn:
             return int(conn.execute("SELECT COUNT(*) FROM chunks").fetchone()[0])
