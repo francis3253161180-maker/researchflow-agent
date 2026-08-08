@@ -148,6 +148,8 @@ python scripts/run_eval.py --corpus-dir .. --embedding-provider fastembed
 
 这组语料的专有方法名与问题文本高度重合，因此词法检索在 Recall@1 上最优；Hybrid 的价值在于 FastEmbed 条件下提高 Recall@2，代价是 CPU embedding 延迟。该结果说明应按语料分布选择检索策略，不能预设 RRF 一定获胜。完整协议、问题标签、原始结果与失败分析见 [论文检索评测说明](docs/paper-retrieval-evaluation.md)。
 
+另有一份 [本地多语种真实文档评测](docs/portfolio-multilingual-evaluation.md)：它使用用户提供的论文、rebuttal、OpenReview、DOCX 和 PDF 简历，检验中文问题对中英文混合材料的检索边界。该语料不提交到仓库，结果不等同于通用企业 RAG 指标。
+
 ## 项目结构
 
 ```text

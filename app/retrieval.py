@@ -24,6 +24,43 @@ def tokenize(text: str) -> list[str]:
 def chunk_text(text: str, max_chars: int = 620, overlap: int = 80) -> list[str]:
     normalized = re.sub(r"\r\n?", "\n", text).strip()
     paragraphs = [p.strip() for p in re.split(r"\n\s*\n", normalized) if p.strip()]
+
+    def split_long_unit(unit: str) -> list[str]:
+        """Prefer line and sentence boundaries before a character sliding window.
+
+        PDF extraction often produces a page as one long single-newline block;
+        blindly slicing it can split a claim from its metric. This remains
+        format-agnostic and falls back to overlapping character windows only
+        when no usable textual boundary exists.
+        """
+        boundaries = [part.strip() for part in re.split(r"\n+|(?<=[.!?。！？])\s+", unit) if part.strip()]
+        if len(boundaries) <= 1:
+            boundaries = [unit]
+        pieces: list[str] = []
+        current_piece = ""
+        for boundary in boundaries:
+            if len(boundary) > max_chars:
+                if current_piece:
+                    pieces.append(current_piece)
+                    current_piece = ""
+                start = 0
+                while start < len(boundary):
+                    end = min(len(boundary), start + max_chars)
+                    pieces.append(boundary[start:end])
+                    if end == len(boundary):
+                        break
+                    start = max(0, end - overlap)
+                continue
+            candidate = f"{current_piece}\n{boundary}".strip()
+            if current_piece and len(candidate) > max_chars:
+                pieces.append(current_piece)
+                current_piece = boundary
+            else:
+                current_piece = candidate
+        if current_piece:
+            pieces.append(current_piece)
+        return pieces
+
     chunks: list[str] = []
     current = ""
     for paragraph in paragraphs:
@@ -35,13 +72,7 @@ def chunk_text(text: str, max_chars: int = 620, overlap: int = 80) -> list[str]:
         if len(paragraph) <= max_chars:
             current = paragraph
             continue
-        start = 0
-        while start < len(paragraph):
-            end = min(len(paragraph), start + max_chars)
-            chunks.append(paragraph[start:end])
-            if end == len(paragraph):
-                break
-            start = max(0, end - overlap)
+        chunks.extend(split_long_unit(paragraph))
         current = ""
     if current:
         chunks.append(current)

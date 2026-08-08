@@ -1,5 +1,6 @@
 from app.config import Settings
 from app.ingestion import TextBlock
+from app.retrieval import chunk_text
 from app.service import ResearchFlowService
 
 
@@ -27,6 +28,15 @@ def test_document_chunking_creates_multiple_chunks(tmp_path):
     assert count >= 2
 
 
+def test_chunking_prefers_sentence_boundaries_before_character_windows():
+    text = "First evidence sentence. " * 28 + "Critical metric is 20.7 points. " + "Closing sentence. " * 28
+    chunks = chunk_text(text, max_chars=180, overlap=20)
+
+    assert len(chunks) > 1
+    assert any("Critical metric is 20.7 points." in chunk for chunk in chunks)
+    assert all(not chunk.startswith("vidence sentence") for chunk in chunks)
+
+
 def test_markdown_section_context_keeps_reviewer_identity_across_chunks(tmp_path):
     service = make_service(tmp_path)
     reviewer_section = "Official Review of Submission13481 by Reviewer jueW"
@@ -35,7 +45,7 @@ def test_markdown_section_context_keeps_reviewer_identity_across_chunks(tmp_path
             "Summary: MAC-KV addresses KV cache memory bottlenecks.\n\n"
             "Strengths: The reviewer credits the symmetric codebook, heterogeneous outlier protection, "
             "and fused CUDA kernel for a strong engineering effort.",
-            section=f"{reviewer_section} · Strengths",
+            section=reviewer_section,
         )
     ]
     service.retriever.ingest(
@@ -50,4 +60,3 @@ def test_markdown_section_context_keeps_reviewer_identity_across_chunks(tmp_path
     assert results
     assert any("Strengths:" in result.content for result in results)
     assert all(reviewer_section in result.content for result in results)
-    assert results[0].section == f"{reviewer_section} · Strengths"

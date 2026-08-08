@@ -1,0 +1,802 @@
+{
+  "protocol": {
+    "corpus": "8 local user-provided files: two papers, two rebuttals, two OpenReview Markdown records, one DOCX resume, and one PDF resume",
+    "queries": "16 manually authored Chinese retrieval questions with document and evidence-hint labels",
+    "unit_of_relevance": "document rank plus a lightweight evidence-hint check in the top 4 chunks",
+    "warning": "Small portfolio regression evaluation only; not a claim of general RAG accuracy or answer faithfulness."
+  },
+  "embedding_provider": "hash",
+  "summary": {
+    "lexical": {
+      "queries": 16,
+      "recall_at_1": 0.4375,
+      "recall_at_3": 0.75,
+      "mrr_at_6": 0.5938,
+      "evidence_hint_at_4": 0.375,
+      "mean_latency_ms": 84.14
+    },
+    "dense": {
+      "queries": 16,
+      "recall_at_1": 0.375,
+      "recall_at_3": 0.6875,
+      "mrr_at_6": 0.5667,
+      "evidence_hint_at_4": 0.4375,
+      "mean_latency_ms": 85.41
+    },
+    "hybrid": {
+      "queries": 16,
+      "recall_at_1": 0.3125,
+      "recall_at_3": 0.875,
+      "mrr_at_6": 0.5833,
+      "evidence_hint_at_4": 0.5,
+      "mean_latency_ms": 82.56
+    }
+  },
+  "details": {
+    "lexical": [
+      {
+        "id": "mackv_method",
+        "query": "MAC-KV 如何针对 Key 和 Value 的不同异常值模式进行保护？",
+        "relevant_document": "mackv-paper",
+        "evidence_hint": "Heterogeneous Outlier Protection",
+        "strategy": "lexical",
+        "document_rank": 3,
+        "evidence_hint_found": false,
+        "latency_ms": 85.16,
+        "top_documents": [
+          "quant-resume-pdf",
+          "agent-resume-docx",
+          "mackv-paper",
+          "mackv-openreview"
+        ]
+      },
+      {
+        "id": "mackv_metric",
+        "query": "MAC-KV 在 2.78 bit per value 时报告了什么 GSM8K 和解码延迟结果？",
+        "relevant_document": "mackv-paper",
+        "evidence_hint": "20.7-point GSM8K",
+        "strategy": "lexical",
+        "document_rank": 4,
+        "evidence_hint_found": false,
+        "latency_ms": 79.52,
+        "top_documents": [
+          "quant-resume-pdf",
+          "mackv-openreview",
+          "agent-resume-docx",
+          "mackv-paper"
+        ]
+      },
+      {
+        "id": "mackv_scale_limit",
+        "query": "MAC-KV 作者如何回应没有验证 70B 模型和 100K 长上下文的质疑？",
+        "relevant_document": "mackv-rebuttal",
+        "evidence_hint": "70B/100K",
+        "strategy": "lexical",
+        "document_rank": 3,
+        "evidence_hint_found": false,
+        "latency_ms": 85.93,
+        "top_documents": [
+          "agent-resume-docx",
+          "quant-resume-pdf",
+          "mackv-rebuttal",
+          "mackv-openreview",
+          "mackv-paper"
+        ]
+      },
+      {
+        "id": "mackv_kvquant",
+        "query": "MAC-KV rebuttal 中与 KVQuant 的统一 WikiText-2 对比结果是什么？",
+        "relevant_document": "mackv-rebuttal",
+        "evidence_hint": "KVQuant",
+        "strategy": "lexical",
+        "document_rank": 3,
+        "evidence_hint_found": false,
+        "latency_ms": 77.44,
+        "top_documents": [
+          "quant-resume-pdf",
+          "agent-resume-docx",
+          "mackv-rebuttal",
+          "mackv-paper"
+        ]
+      },
+      {
+        "id": "mackv_juew_strength",
+        "query": "Reviewer jueW 认为 MAC-KV 的主要优点是什么？",
+        "relevant_document": "mackv-openreview",
+        "evidence_hint": "(S1)",
+        "strategy": "lexical",
+        "document_rank": 1,
+        "evidence_hint_found": false,
+        "latency_ms": 72.38,
+        "top_documents": [
+          "mackv-openreview",
+          "mackv-rebuttal"
+        ]
+      },
+      {
+        "id": "mackv_area_chair",
+        "query": "Area Chair 对 MAC-KV 提出的共同担忧包括哪些方面？",
+        "relevant_document": "mackv-openreview",
+        "evidence_hint": "The following weaknesses were raised",
+        "strategy": "lexical",
+        "document_rank": 1,
+        "evidence_hint_found": false,
+        "latency_ms": 75.62,
+        "top_documents": [
+          "mackv-openreview",
+          "mackv-rebuttal",
+          "holo-openreview"
+        ]
+      },
+      {
+        "id": "holo_operation",
+        "query": "Holo 的核心谱域参数高效微调操作是什么，它与 LoRA 的加性更新有何不同？",
+        "relevant_document": "holo-paper",
+        "evidence_hint": "spectral multiplicative modulation",
+        "strategy": "lexical",
+        "document_rank": 3,
+        "evidence_hint_found": false,
+        "latency_ms": 91.53,
+        "top_documents": [
+          "agent-resume-docx",
+          "quant-resume-pdf",
+          "holo-paper",
+          "holo-rebuttal"
+        ]
+      },
+      {
+        "id": "holo_memory",
+        "query": "Holo 为什么能在长上下文中减少额外激活显存，它的复杂度表述是什么？",
+        "relevant_document": "holo-paper",
+        "evidence_hint": "O(1) additional activation memory",
+        "strategy": "lexical",
+        "document_rank": 4,
+        "evidence_hint_found": false,
+        "latency_ms": 79.92,
+        "top_documents": [
+          "agent-resume-docx",
+          "quant-resume-pdf",
+          "holo-openreview",
+          "holo-paper",
+          "holo-rebuttal"
+        ]
+      },
+      {
+        "id": "holo_qwen",
+        "query": "Holo rebuttal 为回应现代大模型骨干网络的质疑补充了哪个模型和什么结论？",
+        "relevant_document": "holo-rebuttal",
+        "evidence_hint": "Qwen3-8B",
+        "strategy": "lexical",
+        "document_rank": 999,
+        "evidence_hint_found": false,
+        "latency_ms": 75.65,
+        "top_documents": [
+          "quant-resume-pdf",
+          "agent-resume-docx",
+          "holo-openreview",
+          "mackv-openreview"
+        ]
+      },
+      {
+        "id": "holo_long_context",
+        "query": "Holo rebuttal 中对短上下文延迟和 120K 长上下文显存的结论是什么？",
+        "relevant_document": "holo-rebuttal",
+        "evidence_hint": "120K",
+        "strategy": "lexical",
+        "document_rank": 6,
+        "evidence_hint_found": false,
+        "latency_ms": 74.47,
+        "top_documents": [
+          "agent-resume-docx",
+          "quant-resume-pdf",
+          "holo-paper",
+          "holo-openreview",
+          "mackv-openreview",
+          "holo-rebuttal"
+        ]
+      },
+      {
+        "id": "holo_dnky",
+        "query": "Reviewer DNKY 对 Holo 的创新性、理论解释和实验规模提出了哪些核心质疑？",
+        "relevant_document": "holo-openreview",
+        "evidence_hint": "Reviewer DNKY",
+        "strategy": "lexical",
+        "document_rank": 2,
+        "evidence_hint_found": true,
+        "latency_ms": 88.34,
+        "top_documents": [
+          "holo-rebuttal",
+          "holo-openreview"
+        ]
+      },
+      {
+        "id": "holo_uv9p",
+        "query": "Reviewer Uv9P 对 Holo 的机制解释和长短上下文效率提出了什么问题？",
+        "relevant_document": "holo-openreview",
+        "evidence_hint": "Reviewer Uv9P",
+        "strategy": "lexical",
+        "document_rank": 1,
+        "evidence_hint_found": true,
+        "latency_ms": 97.59,
+        "top_documents": [
+          "holo-openreview",
+          "holo-rebuttal"
+        ]
+      },
+      {
+        "id": "agent_resume_mcp",
+        "query": "Agent/RAG 简历中的 ResearchFlow Agent 项目通过什么协议向外部 Agent Host 暴露检索和引用回查能力？",
+        "relevant_document": "agent-resume-docx",
+        "evidence_hint": "MCP",
+        "strategy": "lexical",
+        "document_rank": 1,
+        "evidence_hint_found": true,
+        "latency_ms": 83.7,
+        "top_documents": [
+          "agent-resume-docx",
+          "quant-resume-pdf",
+          "holo-rebuttal"
+        ]
+      },
+      {
+        "id": "agent_resume_stack",
+        "query": "Agent/RAG 简历中 ResearchFlow 的服务、编排、数据库和容器化技术栈分别是什么？",
+        "relevant_document": "agent-resume-docx",
+        "evidence_hint": "FastAPI",
+        "strategy": "lexical",
+        "document_rank": 1,
+        "evidence_hint_found": true,
+        "latency_ms": 83.34,
+        "top_documents": [
+          "agent-resume-docx",
+          "quant-resume-pdf",
+          "holo-rebuttal"
+        ]
+      },
+      {
+        "id": "quant_resume_direction",
+        "query": "量化算法版简历的目标实习方向是什么？",
+        "relevant_document": "quant-resume-pdf",
+        "evidence_hint": "LLM 量化 / PEFT",
+        "strategy": "lexical",
+        "document_rank": 1,
+        "evidence_hint_found": true,
+        "latency_ms": 109.55,
+        "top_documents": [
+          "quant-resume-pdf",
+          "agent-resume-docx",
+          "holo-rebuttal"
+        ]
+      },
+      {
+        "id": "quant_resume_paper",
+        "query": "量化算法版简历中 MAC-KV 论文列出的核心方法和实验效果是什么？",
+        "relevant_document": "quant-resume-pdf",
+        "evidence_hint": "Lloyd-Max",
+        "strategy": "lexical",
+        "document_rank": 1,
+        "evidence_hint_found": true,
+        "latency_ms": 86.18,
+        "top_documents": [
+          "quant-resume-pdf",
+          "agent-resume-docx",
+          "mackv-paper",
+          "mackv-openreview"
+        ]
+      }
+    ],
+    "dense": [
+      {
+        "id": "mackv_method",
+        "query": "MAC-KV 如何针对 Key 和 Value 的不同异常值模式进行保护？",
+        "relevant_document": "mackv-paper",
+        "evidence_hint": "Heterogeneous Outlier Protection",
+        "strategy": "dense",
+        "document_rank": 1,
+        "evidence_hint_found": false,
+        "latency_ms": 84.88,
+        "top_documents": [
+          "mackv-paper",
+          "mackv-openreview",
+          "quant-resume-pdf"
+        ]
+      },
+      {
+        "id": "mackv_metric",
+        "query": "MAC-KV 在 2.78 bit per value 时报告了什么 GSM8K 和解码延迟结果？",
+        "relevant_document": "mackv-paper",
+        "evidence_hint": "20.7-point GSM8K",
+        "strategy": "dense",
+        "document_rank": 1,
+        "evidence_hint_found": true,
+        "latency_ms": 81.21,
+        "top_documents": [
+          "mackv-paper",
+          "mackv-openreview",
+          "quant-resume-pdf"
+        ]
+      },
+      {
+        "id": "mackv_scale_limit",
+        "query": "MAC-KV 作者如何回应没有验证 70B 模型和 100K 长上下文的质疑？",
+        "relevant_document": "mackv-rebuttal",
+        "evidence_hint": "70B/100K",
+        "strategy": "dense",
+        "document_rank": 4,
+        "evidence_hint_found": false,
+        "latency_ms": 78.71,
+        "top_documents": [
+          "agent-resume-docx",
+          "quant-resume-pdf",
+          "mackv-paper",
+          "mackv-rebuttal"
+        ]
+      },
+      {
+        "id": "mackv_kvquant",
+        "query": "MAC-KV rebuttal 中与 KVQuant 的统一 WikiText-2 对比结果是什么？",
+        "relevant_document": "mackv-rebuttal",
+        "evidence_hint": "KVQuant",
+        "strategy": "dense",
+        "document_rank": 3,
+        "evidence_hint_found": true,
+        "latency_ms": 121.98,
+        "top_documents": [
+          "quant-resume-pdf",
+          "mackv-paper",
+          "mackv-rebuttal",
+          "mackv-openreview"
+        ]
+      },
+      {
+        "id": "mackv_juew_strength",
+        "query": "Reviewer jueW 认为 MAC-KV 的主要优点是什么？",
+        "relevant_document": "mackv-openreview",
+        "evidence_hint": "(S1)",
+        "strategy": "dense",
+        "document_rank": 2,
+        "evidence_hint_found": false,
+        "latency_ms": 76.17,
+        "top_documents": [
+          "mackv-rebuttal",
+          "mackv-openreview"
+        ]
+      },
+      {
+        "id": "mackv_area_chair",
+        "query": "Area Chair 对 MAC-KV 提出的共同担忧包括哪些方面？",
+        "relevant_document": "mackv-openreview",
+        "evidence_hint": "The following weaknesses were raised",
+        "strategy": "dense",
+        "document_rank": 2,
+        "evidence_hint_found": false,
+        "latency_ms": 84.65,
+        "top_documents": [
+          "mackv-rebuttal",
+          "mackv-openreview",
+          "holo-openreview"
+        ]
+      },
+      {
+        "id": "holo_operation",
+        "query": "Holo 的核心谱域参数高效微调操作是什么，它与 LoRA 的加性更新有何不同？",
+        "relevant_document": "holo-paper",
+        "evidence_hint": "spectral multiplicative modulation",
+        "strategy": "dense",
+        "document_rank": 5,
+        "evidence_hint_found": false,
+        "latency_ms": 82.01,
+        "top_documents": [
+          "quant-resume-pdf",
+          "agent-resume-docx",
+          "mackv-openreview",
+          "mackv-paper",
+          "holo-paper",
+          "holo-rebuttal"
+        ]
+      },
+      {
+        "id": "holo_memory",
+        "query": "Holo 为什么能在长上下文中减少额外激活显存，它的复杂度表述是什么？",
+        "relevant_document": "holo-paper",
+        "evidence_hint": "O(1) additional activation memory",
+        "strategy": "dense",
+        "document_rank": 4,
+        "evidence_hint_found": false,
+        "latency_ms": 71.71,
+        "top_documents": [
+          "agent-resume-docx",
+          "quant-resume-pdf",
+          "mackv-paper",
+          "holo-paper",
+          "mackv-openreview"
+        ]
+      },
+      {
+        "id": "holo_qwen",
+        "query": "Holo rebuttal 为回应现代大模型骨干网络的质疑补充了哪个模型和什么结论？",
+        "relevant_document": "holo-rebuttal",
+        "evidence_hint": "Qwen3-8B",
+        "strategy": "dense",
+        "document_rank": 3,
+        "evidence_hint_found": false,
+        "latency_ms": 76.34,
+        "top_documents": [
+          "mackv-paper",
+          "mackv-rebuttal",
+          "holo-rebuttal",
+          "holo-paper",
+          "holo-openreview",
+          "quant-resume-pdf"
+        ]
+      },
+      {
+        "id": "holo_long_context",
+        "query": "Holo rebuttal 中对短上下文延迟和 120K 长上下文显存的结论是什么？",
+        "relevant_document": "holo-rebuttal",
+        "evidence_hint": "120K",
+        "strategy": "dense",
+        "document_rank": 999,
+        "evidence_hint_found": false,
+        "latency_ms": 76.61,
+        "top_documents": [
+          "agent-resume-docx",
+          "quant-resume-pdf",
+          "holo-paper",
+          "mackv-rebuttal",
+          "mackv-paper"
+        ]
+      },
+      {
+        "id": "holo_dnky",
+        "query": "Reviewer DNKY 对 Holo 的创新性、理论解释和实验规模提出了哪些核心质疑？",
+        "relevant_document": "holo-openreview",
+        "evidence_hint": "Reviewer DNKY",
+        "strategy": "dense",
+        "document_rank": 2,
+        "evidence_hint_found": true,
+        "latency_ms": 91.34,
+        "top_documents": [
+          "holo-rebuttal",
+          "holo-openreview"
+        ]
+      },
+      {
+        "id": "holo_uv9p",
+        "query": "Reviewer Uv9P 对 Holo 的机制解释和长短上下文效率提出了什么问题？",
+        "relevant_document": "holo-openreview",
+        "evidence_hint": "Reviewer Uv9P",
+        "strategy": "dense",
+        "document_rank": 1,
+        "evidence_hint_found": true,
+        "latency_ms": 86.41,
+        "top_documents": [
+          "holo-openreview",
+          "holo-rebuttal"
+        ]
+      },
+      {
+        "id": "agent_resume_mcp",
+        "query": "Agent/RAG 简历中的 ResearchFlow Agent 项目通过什么协议向外部 Agent Host 暴露检索和引用回查能力？",
+        "relevant_document": "agent-resume-docx",
+        "evidence_hint": "MCP",
+        "strategy": "dense",
+        "document_rank": 1,
+        "evidence_hint_found": true,
+        "latency_ms": 85.23,
+        "top_documents": [
+          "agent-resume-docx",
+          "mackv-paper",
+          "holo-openreview",
+          "holo-paper"
+        ]
+      },
+      {
+        "id": "agent_resume_stack",
+        "query": "Agent/RAG 简历中 ResearchFlow 的服务、编排、数据库和容器化技术栈分别是什么？",
+        "relevant_document": "agent-resume-docx",
+        "evidence_hint": "FastAPI",
+        "strategy": "dense",
+        "document_rank": 5,
+        "evidence_hint_found": false,
+        "latency_ms": 76.87,
+        "top_documents": [
+          "quant-resume-pdf",
+          "holo-rebuttal",
+          "mackv-paper",
+          "holo-paper",
+          "agent-resume-docx"
+        ]
+      },
+      {
+        "id": "quant_resume_direction",
+        "query": "量化算法版简历的目标实习方向是什么？",
+        "relevant_document": "quant-resume-pdf",
+        "evidence_hint": "LLM 量化 / PEFT",
+        "strategy": "dense",
+        "document_rank": 1,
+        "evidence_hint_found": true,
+        "latency_ms": 108.27,
+        "top_documents": [
+          "quant-resume-pdf",
+          "agent-resume-docx",
+          "mackv-paper",
+          "mackv-openreview",
+          "holo-paper",
+          "holo-openreview"
+        ]
+      },
+      {
+        "id": "quant_resume_paper",
+        "query": "量化算法版简历中 MAC-KV 论文列出的核心方法和实验效果是什么？",
+        "relevant_document": "quant-resume-pdf",
+        "evidence_hint": "Lloyd-Max",
+        "strategy": "dense",
+        "document_rank": 1,
+        "evidence_hint_found": true,
+        "latency_ms": 84.14,
+        "top_documents": [
+          "quant-resume-pdf",
+          "agent-resume-docx",
+          "mackv-paper",
+          "mackv-openreview",
+          "holo-paper"
+        ]
+      }
+    ],
+    "hybrid": [
+      {
+        "id": "mackv_method",
+        "query": "MAC-KV 如何针对 Key 和 Value 的不同异常值模式进行保护？",
+        "relevant_document": "mackv-paper",
+        "evidence_hint": "Heterogeneous Outlier Protection",
+        "strategy": "hybrid",
+        "document_rank": 2,
+        "evidence_hint_found": false,
+        "latency_ms": 83.01,
+        "top_documents": [
+          "quant-resume-pdf",
+          "mackv-paper",
+          "mackv-openreview",
+          "agent-resume-docx"
+        ]
+      },
+      {
+        "id": "mackv_metric",
+        "query": "MAC-KV 在 2.78 bit per value 时报告了什么 GSM8K 和解码延迟结果？",
+        "relevant_document": "mackv-paper",
+        "evidence_hint": "20.7-point GSM8K",
+        "strategy": "hybrid",
+        "document_rank": 3,
+        "evidence_hint_found": true,
+        "latency_ms": 80.33,
+        "top_documents": [
+          "quant-resume-pdf",
+          "mackv-openreview",
+          "mackv-paper",
+          "agent-resume-docx"
+        ]
+      },
+      {
+        "id": "mackv_scale_limit",
+        "query": "MAC-KV 作者如何回应没有验证 70B 模型和 100K 长上下文的质疑？",
+        "relevant_document": "mackv-rebuttal",
+        "evidence_hint": "70B/100K",
+        "strategy": "hybrid",
+        "document_rank": 4,
+        "evidence_hint_found": false,
+        "latency_ms": 76.62,
+        "top_documents": [
+          "agent-resume-docx",
+          "quant-resume-pdf",
+          "mackv-paper",
+          "mackv-rebuttal",
+          "mackv-openreview"
+        ]
+      },
+      {
+        "id": "mackv_kvquant",
+        "query": "MAC-KV rebuttal 中与 KVQuant 的统一 WikiText-2 对比结果是什么？",
+        "relevant_document": "mackv-rebuttal",
+        "evidence_hint": "KVQuant",
+        "strategy": "hybrid",
+        "document_rank": 3,
+        "evidence_hint_found": true,
+        "latency_ms": 98.03,
+        "top_documents": [
+          "quant-resume-pdf",
+          "mackv-paper",
+          "mackv-rebuttal",
+          "agent-resume-docx",
+          "mackv-openreview"
+        ]
+      },
+      {
+        "id": "mackv_juew_strength",
+        "query": "Reviewer jueW 认为 MAC-KV 的主要优点是什么？",
+        "relevant_document": "mackv-openreview",
+        "evidence_hint": "(S1)",
+        "strategy": "hybrid",
+        "document_rank": 2,
+        "evidence_hint_found": false,
+        "latency_ms": 71.92,
+        "top_documents": [
+          "mackv-rebuttal",
+          "mackv-openreview"
+        ]
+      },
+      {
+        "id": "mackv_area_chair",
+        "query": "Area Chair 对 MAC-KV 提出的共同担忧包括哪些方面？",
+        "relevant_document": "mackv-openreview",
+        "evidence_hint": "The following weaknesses were raised",
+        "strategy": "hybrid",
+        "document_rank": 1,
+        "evidence_hint_found": false,
+        "latency_ms": 72.2,
+        "top_documents": [
+          "mackv-openreview",
+          "mackv-rebuttal",
+          "holo-openreview"
+        ]
+      },
+      {
+        "id": "holo_operation",
+        "query": "Holo 的核心谱域参数高效微调操作是什么，它与 LoRA 的加性更新有何不同？",
+        "relevant_document": "holo-paper",
+        "evidence_hint": "spectral multiplicative modulation",
+        "strategy": "hybrid",
+        "document_rank": 3,
+        "evidence_hint_found": false,
+        "latency_ms": 76.0,
+        "top_documents": [
+          "quant-resume-pdf",
+          "agent-resume-docx",
+          "holo-paper",
+          "holo-rebuttal"
+        ]
+      },
+      {
+        "id": "holo_memory",
+        "query": "Holo 为什么能在长上下文中减少额外激活显存，它的复杂度表述是什么？",
+        "relevant_document": "holo-paper",
+        "evidence_hint": "O(1) additional activation memory",
+        "strategy": "hybrid",
+        "document_rank": 3,
+        "evidence_hint_found": false,
+        "latency_ms": 77.43,
+        "top_documents": [
+          "agent-resume-docx",
+          "quant-resume-pdf",
+          "holo-paper",
+          "holo-rebuttal"
+        ]
+      },
+      {
+        "id": "holo_qwen",
+        "query": "Holo rebuttal 为回应现代大模型骨干网络的质疑补充了哪个模型和什么结论？",
+        "relevant_document": "holo-rebuttal",
+        "evidence_hint": "Qwen3-8B",
+        "strategy": "hybrid",
+        "document_rank": 2,
+        "evidence_hint_found": false,
+        "latency_ms": 79.41,
+        "top_documents": [
+          "quant-resume-pdf",
+          "holo-rebuttal",
+          "holo-paper",
+          "agent-resume-docx",
+          "holo-openreview"
+        ]
+      },
+      {
+        "id": "holo_long_context",
+        "query": "Holo rebuttal 中对短上下文延迟和 120K 长上下文显存的结论是什么？",
+        "relevant_document": "holo-rebuttal",
+        "evidence_hint": "120K",
+        "strategy": "hybrid",
+        "document_rank": 4,
+        "evidence_hint_found": false,
+        "latency_ms": 71.98,
+        "top_documents": [
+          "agent-resume-docx",
+          "quant-resume-pdf",
+          "holo-paper",
+          "holo-rebuttal"
+        ]
+      },
+      {
+        "id": "holo_dnky",
+        "query": "Reviewer DNKY 对 Holo 的创新性、理论解释和实验规模提出了哪些核心质疑？",
+        "relevant_document": "holo-openreview",
+        "evidence_hint": "Reviewer DNKY",
+        "strategy": "hybrid",
+        "document_rank": 2,
+        "evidence_hint_found": true,
+        "latency_ms": 85.03,
+        "top_documents": [
+          "holo-rebuttal",
+          "holo-openreview"
+        ]
+      },
+      {
+        "id": "holo_uv9p",
+        "query": "Reviewer Uv9P 对 Holo 的机制解释和长短上下文效率提出了什么问题？",
+        "relevant_document": "holo-openreview",
+        "evidence_hint": "Reviewer Uv9P",
+        "strategy": "hybrid",
+        "document_rank": 1,
+        "evidence_hint_found": true,
+        "latency_ms": 82.26,
+        "top_documents": [
+          "holo-openreview",
+          "holo-rebuttal"
+        ]
+      },
+      {
+        "id": "agent_resume_mcp",
+        "query": "Agent/RAG 简历中的 ResearchFlow Agent 项目通过什么协议向外部 Agent Host 暴露检索和引用回查能力？",
+        "relevant_document": "agent-resume-docx",
+        "evidence_hint": "MCP",
+        "strategy": "hybrid",
+        "document_rank": 1,
+        "evidence_hint_found": true,
+        "latency_ms": 101.05,
+        "top_documents": [
+          "agent-resume-docx",
+          "holo-rebuttal",
+          "quant-resume-pdf",
+          "holo-openreview"
+        ]
+      },
+      {
+        "id": "agent_resume_stack",
+        "query": "Agent/RAG 简历中 ResearchFlow 的服务、编排、数据库和容器化技术栈分别是什么？",
+        "relevant_document": "agent-resume-docx",
+        "evidence_hint": "FastAPI",
+        "strategy": "hybrid",
+        "document_rank": 2,
+        "evidence_hint_found": true,
+        "latency_ms": 84.18,
+        "top_documents": [
+          "quant-resume-pdf",
+          "agent-resume-docx",
+          "holo-rebuttal",
+          "holo-paper"
+        ]
+      },
+      {
+        "id": "quant_resume_direction",
+        "query": "量化算法版简历的目标实习方向是什么？",
+        "relevant_document": "quant-resume-pdf",
+        "evidence_hint": "LLM 量化 / PEFT",
+        "strategy": "hybrid",
+        "document_rank": 1,
+        "evidence_hint_found": true,
+        "latency_ms": 88.4,
+        "top_documents": [
+          "quant-resume-pdf",
+          "agent-resume-docx",
+          "holo-rebuttal",
+          "holo-openreview"
+        ]
+      },
+      {
+        "id": "quant_resume_paper",
+        "query": "量化算法版简历中 MAC-KV 论文列出的核心方法和实验效果是什么？",
+        "relevant_document": "quant-resume-pdf",
+        "evidence_hint": "Lloyd-Max",
+        "strategy": "hybrid",
+        "document_rank": 1,
+        "evidence_hint_found": true,
+        "latency_ms": 93.15,
+        "top_documents": [
+          "quant-resume-pdf",
+          "agent-resume-docx",
+          "mackv-paper",
+          "mackv-openreview"
+        ]
+      }
+    ]
+  }
+}

@@ -2,7 +2,7 @@ from io import BytesIO
 
 from docx import Document
 
-from app.ingestion import parse_upload
+from app.ingestion import _normalize, parse_upload
 from app.config import Settings
 
 
@@ -43,17 +43,8 @@ def test_markdown_parser_preserves_sections():
     assert [block.section for block in parsed.blocks] == ["Method", "Evaluation"]
 
 
-def test_openreview_strengths_and_weaknesses_become_distinct_subsections():
-    parsed = parse_upload(
-        "openreview.md",
-        b"### Official Review by Reviewer jueW\nSummary: overview.\n\n[Strengths]\nClear method.\n\n[Weaknesses]\nSmall evaluation.",
-    )
-
-    assert [block.section for block in parsed.blocks] == [
-        "Official Review by Reviewer jueW",
-        "Official Review by Reviewer jueW · Strengths",
-        "Official Review by Reviewer jueW · Weaknesses",
-    ]
+def test_normalize_replaces_lone_unicode_surrogates():
+    assert _normalize("valid\ud835text") == "valid?text"
 
 
 def test_docx_parser_extracts_paragraphs():
@@ -66,6 +57,19 @@ def test_docx_parser_extracts_paragraphs():
     parsed = parse_upload("paper-notes.docx", buffer.getvalue())
     assert parsed.filename == "paper-notes.docx"
     assert "experimental configuration" in parsed.content
+
+
+def test_docx_parser_extracts_table_cells():
+    document = Document()
+    table = document.add_table(rows=1, cols=2)
+    table.cell(0, 0).text = "项目"
+    table.cell(0, 1).text = "ResearchFlow Agent"
+    buffer = BytesIO()
+    document.save(buffer)
+
+    parsed = parse_upload("resume.docx", buffer.getvalue())
+
+    assert "ResearchFlow Agent" in parsed.content
 
 
 def test_pdf_parser_preserves_page_number_and_text():

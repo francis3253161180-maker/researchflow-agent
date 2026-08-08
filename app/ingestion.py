@@ -30,13 +30,16 @@ class ParsedDocument:
 
 
 def _normalize(text: str) -> str:
-    return re.sub(r"\n{3,}", "\n\n", text.replace("\r\n", "\n")).strip()
+    # PDF extractors occasionally emit lone UTF-16 surrogates. SQLite's UTF-8
+    # encoder rejects them, so normalize them at the ingestion boundary instead
+    # of letting one malformed glyph invalidate an otherwise usable document.
+    safe_text = text.encode("utf-8", errors="replace").decode("utf-8")
+    return re.sub(r"\n{3,}", "\n\n", safe_text.replace("\r\n", "\n")).strip()
 
 
 def _markdown_blocks(text: str) -> list[TextBlock]:
     blocks: list[TextBlock] = []
     current_section = ""
-    section_root = ""
     buffer: list[str] = []
 
     def flush() -> None:
@@ -49,15 +52,6 @@ def _markdown_blocks(text: str) -> list[TextBlock]:
         if line.lstrip().startswith("#"):
             flush()
             current_section = line.lstrip("# ").strip()
-            section_root = current_section
-        elif match := re.fullmatch(r"\[(Strengths|Weaknesses)\]\s*", line.strip(), flags=re.IGNORECASE):
-            # OpenReview exports put these labels inside a review body, not in
-            # Markdown headings. Promote them to sub-sections so evidence for
-            # a reviewer's strengths cannot be mixed with weaknesses solely by
-            # chunk boundaries.
-            flush()
-            label = match.group(1).title()
-            current_section = f"{section_root} · {label}" if section_root else label
         else:
             buffer.append(line)
     flush()
@@ -79,7 +73,16 @@ def parse_upload(filename: str, payload: bytes, source: str = "upload") -> Parse
         media_type = "application/pdf"
     elif suffix == ".docx":
         document = Document(BytesIO(payload))
-        text = _normalize("\n".join(paragraph.text for paragraph in document.paragraphs))
+        paragraphs = [paragraph.text for paragraph in document.paragraphs if paragraph.text.strip()]
+        # Resumes, reports, and forms often place all visible content in tables.
+        # python-docx does not include table cells in ``document.paragraphs``.
+        table_rows = []
+        for table in document.tables:
+            for row in table.rows:
+                cells = [cell.text.strip() for cell in row.cells if cell.text.strip()]
+                if cells:
+                    table_rows.append(" | ".join(cells))
+        text = _normalize("\n".join([*paragraphs, *table_rows]))
         blocks = _markdown_blocks(text)
         media_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     else:

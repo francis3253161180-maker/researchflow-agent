@@ -1,0 +1,30 @@
+{
+  "documents": {
+    "mackv-paper": "mackv论文/main.pdf",
+    "mackv-rebuttal": "mackv论文/FINAL_REBUTTAL_EN.md",
+    "mackv-openreview": "mackv论文/openreview-mackv-full.md",
+    "holo-paper": "holo论文/main.pdf",
+    "holo-rebuttal": "holo论文/final_rebuttl.md",
+    "holo-openreview": "holo论文/openreview_INGD0uCe99_reviews_original.md",
+    "agent-resume-docx": "蒋全峰-简历-Agent-RAG版-V5.5.docx",
+    "quant-resume-pdf": "蒋全峰-简历-LLM量化算法版-V5.5.pdf"
+  },
+  "queries": [
+    {"id": "mackv_method", "query": "MAC-KV 如何针对 Key 和 Value 的不同异常值模式进行保护？", "relevant_document": "mackv-paper", "evidence_hint": "Heterogeneous Outlier Protection"},
+    {"id": "mackv_metric", "query": "MAC-KV 在 2.78 bit per value 时报告了什么 GSM8K 和解码延迟结果？", "relevant_document": "mackv-paper", "evidence_hint": "20.7-point GSM8K"},
+    {"id": "mackv_scale_limit", "query": "MAC-KV 作者如何回应没有验证 70B 模型和 100K 长上下文的质疑？", "relevant_document": "mackv-rebuttal", "evidence_hint": "70B/100K"},
+    {"id": "mackv_kvquant", "query": "MAC-KV rebuttal 中与 KVQuant 的统一 WikiText-2 对比结果是什么？", "relevant_document": "mackv-rebuttal", "evidence_hint": "KVQuant"},
+    {"id": "mackv_juew_strength", "query": "Reviewer jueW 认为 MAC-KV 的主要优点是什么？", "relevant_document": "mackv-openreview", "evidence_hint": "(S1)"},
+    {"id": "mackv_area_chair", "query": "Area Chair 对 MAC-KV 提出的共同担忧包括哪些方面？", "relevant_document": "mackv-openreview", "evidence_hint": "The following weaknesses were raised"},
+    {"id": "holo_operation", "query": "Holo 的核心谱域参数高效微调操作是什么，它与 LoRA 的加性更新有何不同？", "relevant_document": "holo-paper", "evidence_hint": "spectral multiplicative modulation"},
+    {"id": "holo_memory", "query": "Holo 为什么能在长上下文中减少额外激活显存，它的复杂度表述是什么？", "relevant_document": "holo-paper", "evidence_hint": "O(1) additional activation memory"},
+    {"id": "holo_qwen", "query": "Holo rebuttal 为回应现代大模型骨干网络的质疑补充了哪个模型和什么结论？", "relevant_document": "holo-rebuttal", "evidence_hint": "Qwen3-8B"},
+    {"id": "holo_long_context", "query": "Holo rebuttal 中对短上下文延迟和 120K 长上下文显存的结论是什么？", "relevant_document": "holo-rebuttal", "evidence_hint": "120K"},
+    {"id": "holo_dnky", "query": "Reviewer DNKY 对 Holo 的创新性、理论解释和实验规模提出了哪些核心质疑？", "relevant_document": "holo-openreview", "evidence_hint": "Reviewer DNKY"},
+    {"id": "holo_uv9p", "query": "Reviewer Uv9P 对 Holo 的机制解释和长短上下文效率提出了什么问题？", "relevant_document": "holo-openreview", "evidence_hint": "Reviewer Uv9P"},
+    {"id": "agent_resume_mcp", "query": "Agent/RAG 简历中的 ResearchFlow Agent 项目通过什么协议向外部 Agent Host 暴露检索和引用回查能力？", "relevant_document": "agent-resume-docx", "evidence_hint": "MCP"},
+    {"id": "agent_resume_stack", "query": "Agent/RAG 简历中 ResearchFlow 的服务、编排、数据库和容器化技术栈分别是什么？", "relevant_document": "agent-resume-docx", "evidence_hint": "FastAPI"},
+    {"id": "quant_resume_direction", "query": "量化算法版简历的目标实习方向是什么？", "relevant_document": "quant-resume-pdf", "evidence_hint": "LLM 量化 / PEFT"},
+    {"id": "quant_resume_paper", "query": "量化算法版简历中 MAC-KV 论文列出的核心方法和实验效果是什么？", "relevant_document": "quant-resume-pdf", "evidence_hint": "Lloyd-Max"}
+  ]
+}

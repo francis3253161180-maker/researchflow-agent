@@ -95,7 +95,7 @@ sequenceDiagram
 
 ResearchFlow 的 LangGraph 主链路仍直接调用进程内 `calculate()`；但项目同时提供独立 MCP Server，把检索、精确引用回查、计算和文档清单开放给外部 Host。MCP 的价值是跨进程、跨 Host 的标准发现、参数 schema 和权限边界，而不是取代 LangGraph planner。
 
-对于 OpenReview 导出的 Markdown，检索层将显式的 `[Strengths]` / `[Weaknesses]` 字段解析为继承 reviewer ID 的子章节，并在查询含稀有 reviewer ID 时优先同一标题章节。这是可解释的结构化文档适配；中英跨语言语义匹配应由多语种 embedding 或查询重写承担，而不是依赖维护一张关键词映射表。
+对于有 Markdown 标题层级的来源，检索层让每个 chunk 继承其最近的标题上下文；对 PDF、DOCX、TXT 则采用格式无关的段落/自然换行/句末优先分块，必要时才使用重叠滑窗。中英跨语言语义匹配应由多语种 embedding 或查询重写承担，而不是依赖某个来源的字段名或维护关键词映射表。
 
 ## 6. 代码框架与 Dify/Coze
 
