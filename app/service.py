@@ -7,14 +7,19 @@ from app.db import Database
 from app.graph import build_graph, initial_state
 from app.ingestion import ParsedDocument
 from app.llm import LLMClient
-from app.retrieval import HybridRetriever, build_embedding_provider
+from app.retrieval import HybridRetriever, build_embedding_provider, build_reranker
 
 
 class ResearchFlowService:
     def __init__(self, settings: Settings):
         settings.ensure_directories()
         self.db = Database(settings.db_path)
-        self.retriever = HybridRetriever(self.db, build_embedding_provider(settings))
+        self.retriever = HybridRetriever(
+            self.db,
+            build_embedding_provider(settings),
+            build_reranker(settings),
+            settings.reranker_candidates,
+        )
         self.llm = LLMClient(settings)
         self.graph = build_graph(self.db, self.retriever, self.llm)
 

@@ -2,8 +2,10 @@
 setlocal EnableExtensions
 cd /d "%~dp0"
 
-set "PYTHON=.venv\Scripts\python.exe"
+set "PYTHON=D:\ResearchFlow-runtime\Scripts\python.exe"
 set "URL=http://127.0.0.1:8000"
+
+if not exist "%PYTHON%" set "PYTHON=.venv\Scripts\python.exe"
 
 if not exist "%PYTHON%" (
   echo ERROR: Project virtual environment was not found.

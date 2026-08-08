@@ -12,6 +12,7 @@ import httpx
 from app.config import Settings
 from app.db import Database
 from app.ingestion import TextBlock
+from app.reranking import BGEReranker, Reranker
 
 
 TOKEN_PATTERN = re.compile(r"[a-zA-Z0-9_]+|[\u4e00-\u9fff]")
@@ -164,6 +165,12 @@ def build_embedding_provider(settings: Settings) -> EmbeddingProvider:
     return HashEmbedding()
 
 
+def build_reranker(settings: Settings) -> Reranker | None:
+    if settings.reranker_provider == "bge":
+        return BGEReranker(settings.reranker_model, settings.reranker_cache_dir)
+    return None
+
+
 def cosine(left: list[float], right: list[float]) -> float:
     if not left or not right or len(left) != len(right):
         return 0.0
@@ -220,9 +227,11 @@ def chunk_blocks(blocks: list[TextBlock]) -> list[ChunkRecord]:
 
 
 class HybridRetriever:
-    def __init__(self, db: Database, embeddings: EmbeddingProvider):
+    def __init__(self, db: Database, embeddings: EmbeddingProvider, reranker: Reranker | None = None, reranker_candidates: int = 20):
         self.db = db
         self.embeddings = embeddings
+        self.reranker = reranker
+        self.reranker_candidates = max(1, reranker_candidates)
 
     def ingest(
         self,
@@ -294,6 +303,25 @@ class HybridRetriever:
         }[strategy]
         ranked = sorted(range(n_docs), key=lambda i: scores[i], reverse=True)
 
+        if self.reranker and strategy == "hybrid":
+            candidate_indices = ranked[: max(top_k, self.reranker_candidates)]
+            reranker_scores = self.reranker.score(query, [chunks[i]["content"] for i in candidate_indices])
+            ranked = [
+                index
+                for _, index in sorted(
+                    zip(reranker_scores, candidate_indices), key=lambda pair: pair[0], reverse=True
+                )
+            ]
+            scores = [reranker_scores[candidate_indices.index(index)] for index in ranked]
+            return [
+                SearchResult(
+                    chunk_id=chunks[index]["id"], document_id=chunks[index]["document_id"],
+                    title=chunks[index]["title"], source=chunks[index]["source"], content=chunks[index]["content"],
+                    score=scores[position], page=chunks[index].get("page"), section=chunks[index].get("section"),
+                    filename=chunks[index].get("filename", ""),
+                )
+                for position, index in enumerate(ranked[:top_k])
+            ]
         ranked = ranked[:top_k]
         return [
             SearchResult(

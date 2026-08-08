@@ -41,8 +41,9 @@ def summarize(rows: list[dict]) -> dict[str, float | int]:
     }
 
 
-def evaluate(corpus_root: Path, provider: str, top_k: int = 12) -> dict:
+def evaluate(corpus_root: Path, provider: str, top_k: int = 12, reranker_provider: str = "none") -> dict:
     manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
+    local_settings = Settings.from_env()
     documents: dict[str, str] = manifest["documents"]
     missing = [path for path in documents.values() if not (corpus_root / path).exists()]
     if missing:
@@ -53,7 +54,11 @@ def evaluate(corpus_root: Path, provider: str, top_k: int = 12) -> dict:
             Settings(
                 db_path=str(Path(directory) / "portfolio-eval.db"),
                 embedding_provider=provider,
-                fastembed_cache_dir=str(ROOT / "data" / "models"),
+                fastembed_cache_dir=local_settings.fastembed_cache_dir,
+                reranker_provider=reranker_provider,
+                reranker_model=local_settings.reranker_model,
+                reranker_cache_dir=local_settings.reranker_cache_dir,
+                reranker_candidates=local_settings.reranker_candidates,
             )
         )
         for document_id, relative_path in documents.items():
@@ -104,6 +109,7 @@ def evaluate(corpus_root: Path, provider: str, top_k: int = 12) -> dict:
             "warning": "Small portfolio regression evaluation only; not a claim of general RAG accuracy or answer faithfulness.",
         },
         "embedding_provider": provider,
+        "reranker_provider": reranker_provider,
         "summary": {strategy: summarize(strategy_rows) for strategy, strategy_rows in rows.items()},
         "details": rows,
     }
@@ -113,9 +119,10 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Run the local multilingual portfolio retrieval evaluation.")
     parser.add_argument("--corpus-root", type=Path, default=ROOT.parent)
     parser.add_argument("--embedding-provider", choices=["hash", "fastembed"], default="fastembed")
+    parser.add_argument("--reranker-provider", choices=["none", "bge"], default="none")
     parser.add_argument("--output", type=Path, default=ROOT / "evals" / "results" / "portfolio_multilingual.json")
     args = parser.parse_args()
-    report = evaluate(args.corpus_root, args.embedding_provider)
+    report = evaluate(args.corpus_root, args.embedding_provider, reranker_provider=args.reranker_provider)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
     print(json.dumps(report["summary"], ensure_ascii=False, indent=2))

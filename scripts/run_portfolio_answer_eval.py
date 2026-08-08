@@ -121,7 +121,7 @@ def summarize(rows: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
-def run(corpus_root: Path, provider: str) -> dict[str, Any]:
+def run(corpus_root: Path, provider: str, reranker_provider: str = "none") -> dict[str, Any]:
     settings = Settings.from_env()
     if not (settings.llm_base_url and settings.llm_api_key and settings.llm_model):
         raise RuntimeError("An LLM endpoint is required for answer evaluation. Configure DEEPSEEK_API_KEY or LLM_* settings.")
@@ -135,7 +135,11 @@ def run(corpus_root: Path, provider: str) -> dict[str, Any]:
             llm_model=settings.llm_model,
             llm_thinking="disabled",
             embedding_provider=provider,
-            fastembed_cache_dir=str(ROOT / "data" / "models"),
+            fastembed_cache_dir=settings.fastembed_cache_dir,
+            reranker_provider=reranker_provider,
+            reranker_model=settings.reranker_model,
+            reranker_cache_dir=settings.reranker_cache_dir,
+            reranker_candidates=settings.reranker_candidates,
         )
         service = ResearchFlowService(eval_settings)
         ingest_corpus(service, corpus_root, manifest["documents"])
@@ -177,6 +181,7 @@ def run(corpus_root: Path, provider: str) -> dict[str, Any]:
             "limitation": "Small regression set and same-provider LLM judge; results are not a general accuracy claim or a replacement for blinded human review.",
         },
         "embedding_provider": provider,
+        "reranker_provider": reranker_provider,
         "llm_model": settings.llm_model,
         "summary": summarize(rows),
         "details": rows,
@@ -187,9 +192,10 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Run the local portfolio end-to-end answer evaluation.")
     parser.add_argument("--corpus-root", type=Path, default=ROOT.parent)
     parser.add_argument("--embedding-provider", choices=["hash", "fastembed"], default="fastembed")
+    parser.add_argument("--reranker-provider", choices=["none", "bge"], default="none")
     parser.add_argument("--output", type=Path, default=ROOT / "evals" / "results" / "portfolio_answer_eval.json")
     args = parser.parse_args()
-    report = run(args.corpus_root, args.embedding_provider)
+    report = run(args.corpus_root, args.embedding_provider, args.reranker_provider)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
     print(json.dumps(report["summary"], ensure_ascii=False, indent=2))

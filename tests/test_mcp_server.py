@@ -62,7 +62,7 @@ def test_mcp_stdio_client_discovers_and_calls_server(tmp_path):
             command=sys.executable,
             args=["-m", "app.mcp_server"],
             cwd=str(Path.cwd()),
-            env={"RESEARCHFLOW_DB_PATH": settings.db_path},
+            env={"RESEARCHFLOW_DB_PATH": settings.db_path, "EMBEDDING_PROVIDER": "hash"},
         )
         async with stdio_client(params) as (read, write):
             async with ClientSession(read, write) as session:

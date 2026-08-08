@@ -18,6 +18,10 @@ class Settings:
     embedding_provider: str = "hash"
     fastembed_model: str = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
     fastembed_cache_dir: str = "./data/models"
+    reranker_provider: str = "none"
+    reranker_model: str = "BAAI/bge-reranker-v2-m3"
+    reranker_cache_dir: str = "./data/models"
+    reranker_candidates: int = 20
     app_api_key: str = ""
     max_upload_bytes: int = 15 * 1024 * 1024
 
@@ -39,6 +43,10 @@ class Settings:
             embedding_provider=os.getenv("EMBEDDING_PROVIDER", "hash").lower(),
             fastembed_model=os.getenv("FASTEMBED_MODEL", "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"),
             fastembed_cache_dir=os.getenv("FASTEMBED_CACHE_DIR", "./data/models"),
+            reranker_provider=os.getenv("RERANKER_PROVIDER", "none").lower(),
+            reranker_model=os.getenv("RERANKER_MODEL", "BAAI/bge-reranker-v2-m3"),
+            reranker_cache_dir=os.getenv("RERANKER_CACHE_DIR", "./data/models"),
+            reranker_candidates=int(os.getenv("RERANKER_CANDIDATES", "20")),
             app_api_key=os.getenv("RESEARCHFLOW_APP_API_KEY", ""),
             max_upload_bytes=int(os.getenv("RESEARCHFLOW_MAX_UPLOAD_BYTES", str(15 * 1024 * 1024))),
         )
@@ -46,3 +54,4 @@ class Settings:
     def ensure_directories(self) -> None:
         Path(self.db_path).expanduser().resolve().parent.mkdir(parents=True, exist_ok=True)
         Path(self.fastembed_cache_dir).expanduser().resolve().mkdir(parents=True, exist_ok=True)
+        Path(self.reranker_cache_dir).expanduser().resolve().mkdir(parents=True, exist_ok=True)

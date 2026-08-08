@@ -50,4 +50,4 @@ LLM 辅助判定可以识别明显遗漏和无依据结论，但与被测模型�
 
 ## 下一步
 
-以这套固定评测集为基线，先评估通用的 Top-N multilingual cross-encoder reranker 是否能提高要点覆盖和证据支撑率；只有收益足以抵消 CPU 延迟，才作为默认链路的一部分。
+以这套固定评测集为基线，项目提供了默认关闭的 Top-N multilingual cross-encoder reranker 接口。它只接收 `(query, passage)` 对进行重排，不依赖文件标题、格式、reviewer 或问题映射。只有当 BGE 模型能在本机下载完成，并在同一评测集上证明要点覆盖/证据支撑的增益足以抵消 CPU 延迟时，才应作为默认链路的一部分。

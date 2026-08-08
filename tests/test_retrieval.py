@@ -1,6 +1,7 @@
 from app.config import Settings
+from app.db import Database
 from app.ingestion import TextBlock
-from app.retrieval import chunk_text
+from app.retrieval import HashEmbedding, HybridRetriever, chunk_text
 from app.service import ResearchFlowService
 
 
@@ -60,3 +61,20 @@ def test_markdown_section_context_keeps_reviewer_identity_across_chunks(tmp_path
     assert results
     assert any("Strengths:" in result.content for result in results)
     assert all(reviewer_section in result.content for result in results)
+
+
+def test_reranker_reorders_only_hybrid_candidates(tmp_path):
+    class PreferSecondPassage:
+        def score(self, query, passages):
+            return [1.0 if "beta" in passage else 0.0 for passage in passages]
+
+    db = Database(str(tmp_path / "rerank.db"))
+    retriever = HybridRetriever(db, HashEmbedding(), PreferSecondPassage(), reranker_candidates=2)
+    retriever.ingest("first", "test", "shared retrieval wording alpha")
+    retriever.ingest("second", "test", "shared retrieval wording beta")
+
+    hybrid = retriever.search("shared retrieval wording", top_k=2, strategy="hybrid")
+    lexical = retriever.search("shared retrieval wording", top_k=2, strategy="lexical")
+
+    assert hybrid[0].title == "second"
+    assert {item.title for item in lexical} == {"first", "second"}
