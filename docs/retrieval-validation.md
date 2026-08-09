@@ -41,3 +41,5 @@ These are regression signals, not claims of enterprise-wide retrieval or answer 
 `tests/test_repository_docs_retrieval.py` indexes every versioned Markdown file under `docs/` with the deterministic offline test embedding. It asserts that the parser accepts the whole documentation corpus and that hybrid retrieval finds evidence in the MCP, FastAPI, LangGraph, SQLite, and retrieval-validation guides. This test runs as part of the ordinary `pytest` suite, so documentation retrieval regressions are caught without needing local private files.
 
 The separate `scripts/run_eval.py` evaluation parses four locally supplied public research-paper PDFs and reports document-level Recall@K/MRR. It is intentionally a local manual evaluation because the PDFs themselves are not committed to the repository.
+
+For the complete layered protocol, including the four review/rebuttal records and an external BEIR SciFact subset, see [Evaluation suite](evaluation-suite.md).

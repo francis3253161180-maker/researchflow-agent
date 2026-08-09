@@ -108,6 +108,7 @@ def ingest_corpus(service: ResearchFlowService, corpus_root: Path, documents: di
 def summarize(rows: list[dict[str, Any]]) -> dict[str, Any]:
     answerable = [row for row in rows if row["answerable"]]
     abstention = [row for row in rows if not row["answerable"]]
+    scoped = [row for row in rows if row.get("source_compliant") is not None]
     claim_total = sum(len(row["expected_claims"]) for row in answerable)
     claim_correct = sum(sum(row["judge"]["claim_scores"]) for row in answerable)
     return {
@@ -117,15 +118,21 @@ def summarize(rows: list[dict[str, Any]]) -> dict[str, Any]:
         "grounded_answer_rate": round(mean(bool(row["judge"]["grounded"]) for row in answerable), 4) if answerable else None,
         "valid_citation_marker_rate": round(mean(row["citation_markers_valid"] for row in answerable), 4) if answerable else None,
         "correct_abstention_rate": round(mean(bool(row["judge"]["correct_abstention"]) for row in abstention), 4) if abstention else None,
+        "source_scope_compliance_rate": round(mean(bool(row["source_compliant"]) for row in scoped), 4) if scoped else None,
         "mean_end_to_end_latency_ms": round(mean(row["latency_ms"] for row in rows), 2),
     }
 
 
-def run(corpus_root: Path, provider: str, reranker_provider: str = "none") -> dict[str, Any]:
+def run(
+    corpus_root: Path,
+    provider: str,
+    reranker_provider: str = "none",
+    manifest_path: Path = MANIFEST,
+) -> dict[str, Any]:
     settings = Settings.from_env()
     if not (settings.llm_base_url and settings.llm_api_key and settings.llm_model):
         raise RuntimeError("An LLM endpoint is required for answer evaluation. Configure DEEPSEEK_API_KEY or LLM_* settings.")
-    manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     rows: list[dict[str, Any]] = []
     with TemporaryDirectory() as directory:
         eval_settings = Settings(
@@ -148,6 +155,12 @@ def run(corpus_root: Path, provider: str, reranker_provider: str = "none") -> di
             result = service.chat(case["query"], session_id=f"eval_{case['id']}")
             citations = result.get("citations", [])
             markers_valid, markers = citation_marker_validity(result["answer"], citations)
+            allowed_documents = case.get("allowed_documents")
+            source_compliant = (
+                all(item["title"] in allowed_documents for item in citations)
+                if allowed_documents is not None
+                else None
+            )
             try:
                 judge = judge_answer(eval_settings, case, result["answer"], citations)
             except Exception as exc:
@@ -164,6 +177,7 @@ def run(corpus_root: Path, provider: str, reranker_provider: str = "none") -> di
                 "citations": [{"title": item["title"], "page": item.get("page"), "section": item.get("section")} for item in citations],
                 "citation_markers": markers,
                 "citation_markers_valid": markers_valid,
+                "source_compliant": source_compliant,
                 "verified_by_agent": result.get("verified", False),
                 "judge": {
                     "claim_scores": scores,
@@ -175,8 +189,8 @@ def run(corpus_root: Path, provider: str, reranker_provider: str = "none") -> di
             })
     return {
         "protocol": {
-            "corpus": "8 local user-provided PDF/DOCX/Markdown files",
-            "cases": "10 answerable questions plus 2 unsupported-information abstention questions",
+            "corpus": manifest.get("protocol", {}).get("corpus", "local document corpus"),
+            "cases": manifest.get("protocol", {}).get("cases", "manually authored grounded-QA cases"),
             "scoring": "declarative reference claims outside production code; deterministic citation-marker validation plus LLM-assisted evidence/rubric review",
             "limitation": "Small regression set and same-provider LLM judge; results are not a general accuracy claim or a replacement for blinded human review.",
         },
@@ -193,9 +207,10 @@ def main() -> None:
     parser.add_argument("--corpus-root", type=Path, default=ROOT.parent)
     parser.add_argument("--embedding-provider", choices=["hash", "fastembed"], default="fastembed")
     parser.add_argument("--reranker-provider", choices=["none", "bge"], default="none")
+    parser.add_argument("--manifest", type=Path, default=MANIFEST, help="JSON manifest of documents and labelled cases.")
     parser.add_argument("--output", type=Path, default=ROOT / "evals" / "results" / "portfolio_answer_eval.json")
     args = parser.parse_args()
-    report = run(args.corpus_root, args.embedding_provider, args.reranker_provider)
+    report = run(args.corpus_root, args.embedding_provider, args.reranker_provider, args.manifest)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
     print(json.dumps(report["summary"], ensure_ascii=False, indent=2))

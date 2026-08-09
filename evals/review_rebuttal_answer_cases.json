@@ -1,0 +1,126 @@
+{
+  "protocol": {
+    "corpus": "four local OpenReview and final-rebuttal Markdown records for MAC-KV and Holo",
+    "cases": "16 manually labelled Chinese questions covering reviewer strengths, criticism, meta review, rebuttal, quantitative evidence, scope restrictions, and abstention"
+  },
+  "documents": {
+    "mackv-openreview": "mackv论文/openreview-mackv-full.md",
+    "mackv-rebuttal": "mackv论文/FINAL_REBUTTAL_EN.md",
+    "holo-openreview": "../holo-paper/openreview_INGD0uCe99_reviews_original.md",
+    "holo-rebuttal": "../holo-paper/final_rebuttl.md"
+  },
+  "cases": [
+    {
+      "id": "mackv_juew_strengths",
+      "query": "Reviewer jueW 认为 MAC-KV 的主要优点是什么？只总结原始审稿意见。",
+      "allowed_documents": ["mackv-openreview"],
+      "expected_claims": ["肯定 Key/Value 异构离群模式下的 HOP、K/V 混合精度和融合 CUDA kernel", "认可低比特 KV Cache 量化的工程动机或贡献"],
+      "answerable": true
+    },
+    {
+      "id": "mackv_area_chair_concerns",
+      "query": "MAC-KV 原始 OpenReview 的 Area Chair / meta review 提了哪些意见？只总结审稿意见，不要总结作者 rebuttal。",
+      "allowed_documents": ["mackv-openreview"],
+      "expected_claims": ["质疑离线校准码本和路由策略的鲁棒性或泛化性", "质疑 HOP 固定阈值/启发式选择的稳定性", "要求更强基线、效率/压缩核算或理论主张的澄清"],
+      "answerable": true
+    },
+    {
+      "id": "mackv_scale_response",
+      "query": "作者如何回应 MAC-KV 没有验证 70B 模型与 100K 长上下文的质疑？只根据 rebuttal 回答。",
+      "allowed_documents": ["mackv-rebuttal"],
+      "expected_claims": ["明确不把结果外推到 70B/100K、TTFT 或 serving", "新增测量只覆盖至 16K 的 post-prefill materialization", "将 70B/100K、paged cache 或 serving 列为限制"],
+      "answerable": true
+    },
+    {
+      "id": "mackv_kvquant_numbers",
+      "query": "MAC-KV rebuttal 中与 KVQuant 的统一 WikiText-2 对比结果是什么？",
+      "allowed_documents": ["mackv-rebuttal"],
+      "expected_claims": ["使用 Llama-2-7B WikiText-2 2K teacher-forcing 比较", "报告 FP16 5.4721、KVQuant 5.5467、MAC-3b 5.7985 的 PPL", "承认该 nominal-3-bit 单元中 KVQuant 更好且并非等有效 bpv 总体排名"],
+      "answerable": true
+    },
+    {
+      "id": "mackv_theory_review",
+      "query": "原始审稿意见如何质疑 MAC-KV 的理论 optimality 主张？不要引用作者回应。",
+      "allowed_documents": ["mackv-openreview"],
+      "expected_claims": ["质疑 Lloyd-Max/最大归一化目标与实际量化误差或端到端质量之间的对应", "质疑最优性条件、混合分布或经验统计不足以支持全局理论主张"],
+      "answerable": true
+    },
+    {
+      "id": "mackv_unreported_serving",
+      "query": "MAC-KV 在 70B、100K、生产 serving 环境下的每 token 吞吐量是多少？",
+      "allowed_documents": ["mackv-openreview", "mackv-rebuttal"],
+      "expected_claims": [],
+      "answerable": false
+    },
+    {
+      "id": "holo_meta_strengths",
+      "query": "Holo 的 Area Chair meta review 认可了哪些主要优点？只总结原始审稿意见。",
+      "allowed_documents": ["holo-openreview"],
+      "expected_claims": ["认可从 dense frequency-domain PEFT 角度探索的原创性或潜力", "认可跨数据集/模型的实验与消融", "认可极低秩或长上下文场景的价值"],
+      "answerable": true
+    },
+    {
+      "id": "holo_meta_weaknesses",
+      "query": "Holo 的 Area Chair meta review 汇总了哪些关键弱点？只总结审稿意见，不要作者 rebuttal。",
+      "allowed_documents": ["holo-openreview"],
+      "expected_claims": ["dense spectral coverage 的因果机制未被直接证明", "骨干网络小或过时，需现代更大模型", "Table 3/4 混合结果、内存/延迟或表达清晰度需要解释"],
+      "answerable": true
+    },
+    {
+      "id": "holo_uv9p_baseline",
+      "query": "Reviewer Uv9P 对 Holo 的 FourierFT 基线公平性提出了什么质疑？只根据原始审稿意见回答。",
+      "allowed_documents": ["holo-openreview"],
+      "expected_claims": ["认为 FourierFT 的 BLEU 21.27 异常低", "质疑缩放因子、采样条目或采样策略是否充分调优", "建议做采样预算或策略敏感性分析"],
+      "answerable": true
+    },
+    {
+      "id": "holo_mechanism_correction",
+      "query": "Holo 作者在 rebuttal 中如何收缩或修正 dense spectral coverage 的机制主张？",
+      "allowed_documents": ["holo-rebuttal"],
+      "expected_claims": ["承认原稿过度强调 dense spectral language 或把它说成唯一因果来源", "将核心主张改为 pretrained-weight-conditioned spectral multiplicative modulation", "把 dense coverage 和 global EURF 定位为属性或结构解释而非已证明的唯一原因"],
+      "answerable": true
+    },
+    {
+      "id": "holo_qwen_response",
+      "query": "Holo rebuttal 为回应现代大模型骨干的质疑补充了什么 Qwen3-8B 证据？",
+      "allowed_documents": ["holo-rebuttal"],
+      "expected_claims": ["增加 Qwen3-8B 作为现代 8B 级骨干", "在匹配的可训练参数预算下比较 Holo 与 LoRA", "三组匹配预算下 Holo 优于 LoRA"],
+      "answerable": true
+    },
+    {
+      "id": "holo_scope_limits",
+      "query": "Holo 作者在 rebuttal 中如何界定代码生成、agentic reasoning 与图像生成的适用范围？",
+      "allowed_documents": ["holo-rebuttal"],
+      "expected_claims": ["代码生成尚未被直接评估", "agentic reasoning 和 diffusion/image generation 被列为未来工作而非当前实验证据", "避免在未评估场景宣称广泛适用"],
+      "answerable": true
+    },
+    {
+      "id": "holo_efficiency_tradeoff",
+      "query": "Holo rebuttal 如何描述短上下文与极长上下文下的效率权衡？",
+      "allowed_documents": ["holo-rebuttal"],
+      "expected_claims": ["FFT/IFFT 使 Holo 在短上下文更慢或有额外开销", "极长上下文时 Holo 通过避免 LoRA 的序列长度相关 activation cache 更具内存可扩展性", "将报告 latency、peak allocated memory 和 peak reserved memory"],
+      "answerable": true
+    },
+    {
+      "id": "holo_presentation_review",
+      "query": "原始审稿对 Holo 的 Figure 1 和术语表达提出了什么问题？只看原始审稿意见。",
+      "allowed_documents": ["holo-openreview"],
+      "expected_claims": ["指出 Figure 1 有编译/呈现问题", "指出 continuous、global、dense 等术语未定义或不清晰"],
+      "answerable": true
+    },
+    {
+      "id": "holo_final_decision",
+      "query": "Holo 的最终录用决定和最终评分是多少？",
+      "allowed_documents": ["holo-openreview", "holo-rebuttal"],
+      "expected_claims": [],
+      "answerable": false
+    },
+    {
+      "id": "cross_paper_method",
+      "query": "MAC-KV 和 Holo 哪一篇都使用了 Qwen3-8B 作为实验模型？",
+      "allowed_documents": ["mackv-openreview", "mackv-rebuttal", "holo-openreview", "holo-rebuttal"],
+      "expected_claims": ["Holo rebuttal 增加 Qwen3-8B", "不能仅凭这四份记录断言 MAC-KV 也使用 Qwen3-8B"],
+      "answerable": true
+    }
+  ]
+}
