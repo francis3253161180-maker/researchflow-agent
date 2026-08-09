@@ -166,5 +166,8 @@ def test_web_ui_exposes_upload_and_citation_surfaces(tmp_path):
         assert "scope-document" in page.text
         assert "reranker-toggle" in page.text
         assert "/api/reranker/toggle" in page.text
+        assert "renderMarkdown" in page.text
+        assert "Shift + Enter" in page.text
+        assert "html.push('<hr>')" in page.text
         assert "page-aware citations" not in page.text  # UI stays Chinese-facing
         assert "选择 PDF / DOCX / XLSX / Markdown / TXT" in page.text
