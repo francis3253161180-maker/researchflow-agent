@@ -11,5 +11,6 @@ evals/results/portfolio_answer_eval*.json
 evals/results/portfolio_multilingual_*_clean.json
 evals/results/portfolio_multilingual_*_top4.json
 evals/results/review_rebuttal_answer_eval*.json
+evals/results/source_scope_rerank_eval*.json
 evals/results/beir_scifact_subset*.json
 *.db

@@ -1,0 +1,74 @@
+{
+  "protocol": {
+    "corpus": "four local OpenReview and final-response Markdown records for MAC-KV and Holo",
+    "cases": "12 natural Chinese questions. Queries deliberately contain no file name, document ID, source-selection instruction, or original/rebuttal scope phrase."
+  },
+  "documents": {
+    "mackv-openreview": "mackv论文/openreview-mackv-full.md",
+    "mackv-rebuttal": "mackv论文/FINAL_REBUTTAL_EN.md",
+    "holo-openreview": "../holo-paper/openreview_INGD0uCe99_reviews_original.md",
+    "holo-rebuttal": "../holo-paper/final_rebuttl.md"
+  },
+  "cases": [
+    {
+      "id": "mackv_juew_strengths_natural",
+      "query": "Reviewer jueW 认为 MAC-KV 的主要优点是什么？",
+      "allowed_documents": ["mackv-openreview"]
+    },
+    {
+      "id": "mackv_area_chair_concerns_natural",
+      "query": "MAC-KV 的 Area Chair 汇总了哪些关键问题？",
+      "allowed_documents": ["mackv-openreview"]
+    },
+    {
+      "id": "mackv_author_scale_response_natural",
+      "query": "作者如何解释 MAC-KV 尚未覆盖 70B 模型和 100K 长上下文的局限？",
+      "allowed_documents": ["mackv-rebuttal"]
+    },
+    {
+      "id": "mackv_kvquant_numbers_natural",
+      "query": "作者补充的 MAC-KV 与 KVQuant 统一 WikiText-2 比较结果是什么？",
+      "allowed_documents": ["mackv-rebuttal"]
+    },
+    {
+      "id": "mackv_theory_review_natural",
+      "query": "审稿人如何质疑 MAC-KV 的理论 optimality 主张？",
+      "allowed_documents": ["mackv-openreview"]
+    },
+    {
+      "id": "holo_meta_strengths_natural",
+      "query": "Holo 的 Area Chair 认可了哪些主要优点？",
+      "allowed_documents": ["holo-openreview"]
+    },
+    {
+      "id": "holo_uv9p_baseline_natural",
+      "query": "Reviewer Uv9P 对 Holo 的 FourierFT 基线公平性提出了什么质疑？",
+      "allowed_documents": ["holo-openreview"]
+    },
+    {
+      "id": "holo_mechanism_correction_natural",
+      "query": "作者如何收缩或修正 Holo 的 dense spectral coverage 机制主张？",
+      "allowed_documents": ["holo-rebuttal"]
+    },
+    {
+      "id": "holo_qwen_response_natural",
+      "query": "作者为回应现代大模型骨干的质疑补充了什么 Qwen3-8B 证据？",
+      "allowed_documents": ["holo-rebuttal"]
+    },
+    {
+      "id": "holo_scope_limits_natural",
+      "query": "作者如何界定 Holo 在代码生成、agentic reasoning 与图像生成上的适用范围？",
+      "allowed_documents": ["holo-rebuttal"]
+    },
+    {
+      "id": "holo_efficiency_tradeoff_natural",
+      "query": "作者如何描述 Holo 在短上下文与极长上下文下的效率权衡？",
+      "allowed_documents": ["holo-rebuttal"]
+    },
+    {
+      "id": "holo_presentation_review_natural",
+      "query": "审稿人对 Holo 的 Figure 1 和术语表达提出了什么问题？",
+      "allowed_documents": ["holo-openreview"]
+    }
+  ]
+}
