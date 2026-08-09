@@ -78,8 +78,13 @@ flowchart LR
     C --> V
     B --> F[RRF fusion]
     V --> F
-    F --> E[Evidence chunks + page/section]
+    F --> N[Top-N candidate chunks]
+    N -->|"BGE 已关闭"| E[Evidence chunks + page/section]
+    N -->|"BGE 已启用（CPU 或 CUDA）"| R[BGE chunk rerank]
+    R --> E
 ```
+
+**BGE 激活策略：** BGE 只位于 RRF 之后，并仅对候选文本块执行 `(query, passage)` 重排；`auto` 在 CUDA 下自动加载、在 CPU 下由用户通过网页顶部按钮按需加载，`bge` 按设备配置在启动时强制加载，`none` 强制关闭。它不会对整篇文档排序。
 
 V1 的词法检索与向量检索各有价值：前者对专业术语、文件名和精确关键词稳定；后者对同义表达更稳健。RRF 只融合排名而非直接比较两个分数的数值尺度，因此适合这个小型、可替换后端的项目。
 

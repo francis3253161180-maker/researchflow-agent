@@ -4,6 +4,7 @@ from app.config import Settings
 from app.db import Database
 from app.ingestion import TextBlock
 from app import retrieval
+from app import service as service_module
 from app.retrieval import HashEmbedding, HybridRetriever, bm25_scores, build_reranker, chunk_text
 from app.service import ResearchFlowService
 
@@ -96,9 +97,6 @@ def test_auto_reranker_skips_cleanly_without_cuda(monkeypatch):
     monkeypatch.setattr(retrieval, "cuda_reranker_available", lambda: False)
 
     assert build_reranker(Settings(reranker_provider="auto")) is None
-    # Backward-compatible explicit BGE configuration must not silently turn a
-    # CPU-only laptop into a multi-second per-query cross-encoder service.
-    assert build_reranker(Settings(reranker_provider="bge")) is None
 
 
 def test_auto_reranker_uses_cuda_when_available(monkeypatch):
@@ -115,6 +113,43 @@ def test_auto_reranker_uses_cuda_when_available(monkeypatch):
 
     assert isinstance(enabled, FakeBGEReranker)
     assert captured["device"] == "cuda"
+
+
+def test_explicit_bge_can_use_cpu_when_user_requests_it(monkeypatch):
+    captured = {}
+
+    class FakeBGEReranker:
+        def __init__(self, model_name, cache_dir, device):
+            captured["device"] = device
+
+    monkeypatch.setattr(retrieval, "BGEReranker", FakeBGEReranker)
+
+    enabled = build_reranker(Settings(reranker_provider="bge", reranker_device="cpu"))
+
+    assert isinstance(enabled, FakeBGEReranker)
+    assert captured["device"] == "cpu"
+
+
+def test_auto_cpu_reranker_loads_only_after_explicit_toggle(monkeypatch, tmp_path):
+    calls = []
+
+    class FakeReranker:
+        def score(self, query, passages):
+            return [0.0] * len(passages)
+
+    def fake_build(_settings, allow_cpu=False):
+        calls.append(allow_cpu)
+        return FakeReranker() if allow_cpu else None
+
+    monkeypatch.setattr(service_module, "build_reranker", fake_build)
+    service = ResearchFlowService(Settings(db_path=str(tmp_path / "toggle.db"), reranker_provider="auto"))
+
+    assert service.metrics()["reranker_active"] is False
+    enabled = service.toggle_reranker()
+    assert enabled["active"] is True
+    assert calls == [False, True]
+    disabled = service.toggle_reranker()
+    assert disabled["active"] is False
 
 
 def test_hybrid_preserves_candidates_from_lexical_and_dense_channels(tmp_path):

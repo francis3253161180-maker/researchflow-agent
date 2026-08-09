@@ -18,6 +18,7 @@ from app.schemas import (
     DocumentCreated,
     DocumentSummary,
     MetricsResponse,
+    RerankerStatus,
     RunDetail,
     SessionMessage,
 )
@@ -129,6 +130,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     def metrics(_: None = Depends(require_api_key)):
         service: ResearchFlowService = app.state.service
         return service.metrics()
+
+    @app.post("/api/reranker/toggle", response_model=RerankerStatus)
+    def toggle_reranker(_: None = Depends(require_api_key)):
+        service: ResearchFlowService = app.state.service
+        result = service.toggle_reranker()
+        if not result["available"]:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=result["error"] or "BGE reranking is disabled by configuration",
+            )
+        return result
 
     return app
 

@@ -15,10 +15,14 @@ class ResearchFlowService:
         self.settings = settings
         settings.ensure_directories()
         self.db = Database(settings.db_path)
+        # ``auto`` eagerly loads BGE only on CUDA. On CPU, the model remains
+        # absent until the user explicitly starts it from the UI/API.
+        self._available_reranker = build_reranker(settings)
+        self._reranker_error = ""
         self.retriever = HybridRetriever(
             self.db,
             build_embedding_provider(settings),
-            build_reranker(settings),
+            self._available_reranker,
             settings.reranker_candidates,
         )
         self.llm = LLMClient(settings)
@@ -54,9 +58,38 @@ class ResearchFlowService:
             "llm_configured": self.llm.configured,
             "embedding_provider": self.retriever.embeddings.__class__.__name__,
             "reranker_requested": self.settings.reranker_provider,
+            "reranker_available": self._available_reranker is not None,
+            "reranker_can_start": self.settings.reranker_provider != "none",
             "reranker_active": self.retriever.reranker is not None,
-            "reranker_provider": self.retriever.reranker.__class__.__name__ if self.retriever.reranker else "none",
+            "reranker_provider": self._available_reranker.__class__.__name__ if self._available_reranker else "none",
+            "reranker_error": self._reranker_error,
             **self.db.run_summary(),
+        }
+
+    def toggle_reranker(self) -> dict:
+        """Toggle BGE; an explicit CPU click lazily constructs it once."""
+        if self.retriever.reranker is not None:
+            self.retriever.reranker = None
+            return self.reranker_status()
+        if self._available_reranker is None and self.settings.reranker_provider != "none":
+            try:
+                self._available_reranker = build_reranker(self.settings, allow_cpu=True)
+                self._reranker_error = ""
+            except Exception as exc:  # configuration/download errors are returned to the control surface
+                self._reranker_error = str(exc)
+        if self._available_reranker is None:
+            return self.reranker_status()
+        self.retriever.reranker = self._available_reranker
+        return self.reranker_status()
+
+    def reranker_status(self) -> dict:
+        return {
+            "requested": self.settings.reranker_provider,
+            "available": self._available_reranker is not None,
+            "can_start": self.settings.reranker_provider != "none",
+            "active": self.retriever.reranker is not None,
+            "provider": self._available_reranker.__class__.__name__ if self._available_reranker else "none",
+            "error": self._reranker_error,
         }
 
     def chat(

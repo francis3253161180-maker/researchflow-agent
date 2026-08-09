@@ -5,6 +5,7 @@ from openpyxl import Workbook
 
 from app.config import Settings
 from app.main import create_app
+from app import service as service_module
 
 
 def test_end_to_end_api(tmp_path):
@@ -13,6 +14,7 @@ def test_end_to_end_api(tmp_path):
         health = client.get("/health")
         assert health.status_code == 200
         assert health.json()["reranker_active"] is False
+        assert health.json()["reranker_can_start"] is True
         assert health.json()["reranker_provider"] == "none"
 
         created = client.post(
@@ -120,6 +122,38 @@ def test_optional_api_key_protects_api_routes(tmp_path):
         assert client.get("/api/documents", headers={"X-API-Key": "test-secret"}).status_code == 200
 
 
+def test_reranker_toggle_reports_force_disabled_configuration(tmp_path):
+    app = create_app(Settings(db_path=str(tmp_path / "disabled-reranker.db"), reranker_provider="none"))
+    with TestClient(app) as client:
+        response = client.post("/api/reranker/toggle")
+        assert response.status_code == 409
+        assert "disabled" in response.json()["detail"]
+
+
+def test_reranker_toggle_can_lazy_start_cpu_mode(monkeypatch, tmp_path):
+    calls = []
+
+    class FakeReranker:
+        def score(self, query, passages):
+            return [0.0] * len(passages)
+
+    def fake_build(_settings, allow_cpu=False):
+        calls.append(allow_cpu)
+        return FakeReranker() if allow_cpu else None
+
+    monkeypatch.setattr(service_module, "build_reranker", fake_build)
+    app = create_app(Settings(db_path=str(tmp_path / "manual-cpu-reranker.db"), reranker_provider="auto"))
+    with TestClient(app) as client:
+        assert client.get("/health").json()["reranker_available"] is False
+        enabled = client.post("/api/reranker/toggle")
+        assert enabled.status_code == 200
+        assert enabled.json()["active"] is True
+        disabled = client.post("/api/reranker/toggle")
+        assert disabled.status_code == 200
+        assert disabled.json()["active"] is False
+    assert calls == [False, True]
+
+
 def test_web_ui_exposes_upload_and_citation_surfaces(tmp_path):
     app = create_app(Settings(db_path=str(tmp_path / "web.db")))
     with TestClient(app) as client:
@@ -130,5 +164,7 @@ def test_web_ui_exposes_upload_and_citation_surfaces(tmp_path):
         assert "multiple" in page.text
         assert "检索范围" in page.text
         assert "scope-document" in page.text
+        assert "reranker-toggle" in page.text
+        assert "/api/reranker/toggle" in page.text
         assert "page-aware citations" not in page.text  # UI stays Chinese-facing
         assert "选择 PDF / DOCX / XLSX / Markdown / TXT" in page.text

@@ -29,11 +29,23 @@ class MetricsResponse(BaseModel):
     llm_configured: bool
     embedding_provider: str
     reranker_requested: str
+    reranker_available: bool
+    reranker_can_start: bool
     reranker_active: bool
     reranker_provider: str
+    reranker_error: str
     runs: int
     average_latency_ms: float
     verified_rate: float
+
+
+class RerankerStatus(BaseModel):
+    requested: str
+    available: bool
+    can_start: bool
+    active: bool
+    provider: str
+    error: str
 
 
 class ChatRequest(BaseModel):

@@ -198,20 +198,26 @@ def cuda_reranker_available() -> bool:
     return bool(torch.cuda.is_available())
 
 
-def build_reranker(settings: Settings) -> Reranker | None:
-    """Build a CUDA-only optional passage reranker.
+def build_reranker(settings: Settings, allow_cpu: bool = False) -> Reranker | None:
+    """Build the optional passage reranker under an explicit loading policy.
 
-    ``auto`` is the normal setting: start BGE on CUDA when present and retain
-    Hybrid RRF alone everywhere else. ``none`` always disables it. ``bge`` is
-    retained for backward-compatible explicit configuration, but intentionally
-    does not silently fall back to an unusably slow CPU cross-encoder.
+    ``auto`` eagerly starts BGE only on CUDA. Its CPU path is available only
+    after an explicit UI action (`allow_cpu=True`). ``bge`` is an explicit
+    configuration request and follows ``reranker_device`` on either CUDA or
+    CPU. ``none`` always disables model construction.
     """
     provider = settings.reranker_provider
     if provider not in {"auto", "none", "bge"}:
         raise ValueError("reranker_provider must be auto, none, or bge")
-    if provider == "none" or not cuda_reranker_available():
+    if provider == "none":
         return None
-    return BGEReranker(settings.reranker_model, settings.reranker_cache_dir, "cuda")
+    if provider == "auto":
+        if cuda_reranker_available():
+            return BGEReranker(settings.reranker_model, settings.reranker_cache_dir, "cuda")
+        if not allow_cpu:
+            return None
+        return BGEReranker(settings.reranker_model, settings.reranker_cache_dir, "cpu")
+    return BGEReranker(settings.reranker_model, settings.reranker_cache_dir, settings.reranker_device)
 
 
 def cosine(left: list[float], right: list[float]) -> float:

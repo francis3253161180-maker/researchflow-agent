@@ -8,7 +8,7 @@
     :root { --ink:#14283a; --muted:#617689; --blue:#2376b8; --line:#d9e4ed; --soft:#f4f8fb; --good:#22734b; --danger:#b33939; }
     * { box-sizing:border-box; } body { margin:0; color:var(--ink); background:#eff4f8; font:14px/1.5 Inter,"Microsoft YaHei",sans-serif; }
     main { max-width:1160px; margin:32px auto; padding:0 18px; } header { display:flex; gap:16px; align-items:flex-start; justify-content:space-between; margin-bottom:18px; }
-    h1 { font-size:30px; margin:0 0 6px; letter-spacing:-.4px; } header p { margin:0; color:var(--muted); } .badge { color:var(--good); background:#eaf7ef; border-radius:999px; padding:5px 9px; font-size:12px; white-space:nowrap; }
+    h1 { font-size:30px; margin:0 0 6px; letter-spacing:-.4px; } header p { margin:0; color:var(--muted); } .badge { color:var(--good); background:#eaf7ef; border-radius:999px; padding:5px 9px; font-size:12px; white-space:nowrap; } .reranker-control { display:flex; justify-content:flex-end; margin:-10px 0 16px; } button.reranker-toggle { margin:0; padding:6px 10px; font-size:12px; } button.reranker-toggle.off { background:#6f8190; } button.reranker-toggle:disabled { cursor:not-allowed; opacity:.65; }
     .grid { display:grid; grid-template-columns:370px 1fr; gap:18px; } .stack { display:grid; gap:18px; align-content:start; } .card { background:#fff; border:1px solid var(--line); border-radius:13px; padding:18px; box-shadow:0 6px 22px rgba(22,55,79,.06); }
     h2 { margin:0 0 12px; font-size:17px; } h3 { margin:0 0 7px; font-size:14px; } label { display:block; font-size:12px; font-weight:700; margin:10px 0 5px; } input, textarea { width:100%; border:1px solid #bcd0df; border-radius:8px; padding:9px 10px; color:var(--ink); font:inherit; } textarea { min-height:126px; resize:vertical; }
     button { margin-top:11px; border:0; border-radius:8px; padding:9px 12px; color:#fff; background:var(--blue); font-weight:700; cursor:pointer; } button:hover { filter:brightness(.95); } button.secondary { margin:0; background:#6f8190; } button.danger { background:transparent; border:1px solid #d9a8a8; color:var(--danger); padding:5px 8px; font-size:12px; }
@@ -23,6 +23,7 @@
     <div><h1>ResearchFlow Agent</h1><p>科研文档导入 · 混合检索 · Agent 编排 · 引用校验 · 运行可观测</p></div>
     <div id="health" class="badge">正在检查服务状态…</div>
   </header>
+  <div class="reranker-control"><button id="reranker-toggle" class="reranker-toggle" onclick="toggleReranker()" disabled>检查 BGE…</button></div>
   <section class="grid">
     <div class="stack">
       <section class="card">
@@ -86,7 +87,10 @@ async function uploadSelectedFiles() {
 }
 async function deleteDocument(id) { if (!confirm('删除该文档及其所有分块？')) return; try { await request(`/api/documents/${id}`, {method:'DELETE'}); await loadDocuments(); await loadHealth(); } catch (error) { alert(error.message); } }
 async function ask() { const answer = $('answer'); answer.textContent = 'Agent 运行中…'; $('meta').textContent = ''; $('citations').innerHTML = ''; $('trace').classList.add('hidden'); try { const selectedDocumentIds = Array.from(document.querySelectorAll('.scope-document:checked')).map(input => input.value); const data = await request('/api/chat', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({query:$('query').value, session_id:sessionId, document_ids:selectedDocumentIds.length ? selectedDocumentIds : null})}); sessionId = data.session_id; answer.textContent = data.answer; const scope = selectedDocumentIds.length ? `scope=${selectedDocumentIds.length} docs` : 'scope=all docs'; $('meta').textContent = `route=${data.route} · ${scope} · verified=${data.verified} · ${data.latency_ms} ms · run=${data.run_id}`; $('citations').innerHTML = data.citations.map((c, i) => `<div class="citation"><div class="citation-title">[${i+1}] ${escapeHtml(c.title)}${c.page ? ` · 第 ${c.page} 页` : ''}</div><div class="small">${escapeHtml(c.filename || c.source)}${c.section ? ` · ${escapeHtml(c.section)}` : ''} · score ${Number(c.score).toFixed(3)}</div><div>${escapeHtml(c.content.slice(0, 360))}</div></div>`).join(''); $('trace-list').innerHTML = data.events.map(item => `<li><b>${escapeHtml(item.node)}</b> · ${escapeHtml(item.detail)} · ${item.at_ms} ms</li>`).join(''); $('trace-errors').textContent = data.errors.length ? `已记录错误：${data.errors.join(', ')}` : ''; $('trace').classList.remove('hidden'); } catch (error) { answer.textContent = error.message; } }
-loadHealth(); loadDocuments();
+async function loadRerankerControl() { try { const data = await request('/health'); updateRerankerButton(data); } catch { const button = $('reranker-toggle'); button.textContent = 'BGE 状态不可用'; button.disabled = true; } }
+async function toggleReranker() { const button = $('reranker-toggle'); button.disabled = true; try { await request('/api/reranker/toggle', {method:'POST'}); await loadHealth(); await loadRerankerControl(); } catch (error) { alert(error.message); await loadRerankerControl(); } }
+function updateRerankerButton(data) { const button = $('reranker-toggle'); button.disabled = !data.reranker_can_start; button.classList.toggle('off', !data.reranker_active); if (data.reranker_active) button.textContent = '关闭 BGE 分片重排'; else if (data.reranker_available) button.textContent = '启动 BGE 分片重排'; else button.textContent = data.reranker_requested === 'none' ? 'BGE 已配置关闭' : '启动 BGE（CPU，较慢）'; button.title = data.reranker_active ? '关闭已启用的 BGE 分片重排' : data.reranker_available ? '启用已加载的 BGE 分片重排' : '首次点击会加载 BGE；CPU 模式会明显增加检索延迟'; }
+loadHealth(); loadDocuments(); loadRerankerControl();
 </script>
 </body>
 </html>

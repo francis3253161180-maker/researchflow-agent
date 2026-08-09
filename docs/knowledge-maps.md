@@ -155,12 +155,12 @@ flowchart TB
     BM25 --> RRF
     VECTOR --> RRF
     RRF --> CANDIDATES
-    CANDIDATES --> RERANK
-    CANDIDATES -. no CUDA .-> TOPK
-    RERANK -. CUDA available .-> TOPK
+    CANDIDATES -->|"BGE 已关闭"| TOPK
+    CANDIDATES -->|"BGE 已启用（CPU 或 CUDA）"| RERANK
+    RERANK --> TOPK
 ```
 
-关系：BM25擅长精确术语，embedding擅长语义近似，RRF融合排名；BGE reranker 只对 Top-N 分片进行可选第二阶段重排。默认 `auto`：检测到 CUDA 才加载，否则直接使用 RRF 的结果，不会在 CPU 上启动 cross-encoder。
+关系：BM25擅长精确术语，embedding擅长语义近似，RRF融合排名；BGE reranker 只对 Top-N 分片进行可选第二阶段重排。默认 `auto`：CUDA 自动加载；CPU 默认保留 RRF，但可从网页顶部按钮手动加载。`bge` 可按配置强制加载，`none` 强制关闭。
 
 ## 图 8：回答、引用与评测
 

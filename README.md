@@ -74,7 +74,7 @@ DEEPSEEK_API_KEY=your_key_here
 LLM_THINKING=disabled
 
 # 可选：只对 Hybrid 检索的 Top-N 候选块执行通用 cross-encoder 重排。
-# auto：仅在检测到 CUDA 时加载；无 GPU 时不加载、继续使用 Hybrid RRF。
+# auto：CUDA 时自动加载；CPU 时默认不加载，可在网页顶部手动启动 CPU BGE。
 RERANKER_PROVIDER=auto
 RERANKER_MODEL=BAAI/bge-reranker-v2-m3
 RERANKER_CACHE_DIR=./data/models
@@ -87,7 +87,7 @@ RESEARCHFLOW_APP_API_KEY=choose-a-strong-local-key
 
 如果设置了 `RESEARCHFLOW_APP_API_KEY`，调用 API 时需发送 `X-API-Key`。`/health` 保持开放，方便容器健康检查。切换 embedding provider 或模型后，已有文档的向量不能复用：请删除旧文档并重新导入。网页顶栏会显示当前检索后端；出现 `Hash 离线检索（不支持跨语言语义）` 时，不应期待中文问题能稳定命中英文证据。
 
-第二阶段重排默认是 `RERANKER_PROVIDER=auto`：只有检测到 CUDA GPU 时，才会加载 `BAAI/bge-reranker-v2-m3`；没有 GPU、未安装可选依赖或设为 `none` 时，服务会正常启动并保持 Hybrid RRF。它仅重排 Hybrid 的 Top-N **候选文本块**，不对整篇文档排序，也不依赖文件类型、标题、reviewer 名称或问题映射。GPU 环境还需安装 `pip install -e ".[rerank]"`；网页状态栏和 `/health` 会显示是否实际启用。务必先用端到端评测验证收益，不能仅凭模型名称启用。
+第二阶段重排有三种明确策略：`auto`（默认，CUDA 自动加载，CPU 由网页顶部按钮按需加载）、`bge`（按 `RERANKER_DEVICE=auto/cpu/cuda` 启动时强制加载）和 `none`（强制关闭）。它仅重排 Hybrid 的 Top-N **候选文本块**，不对整篇文档排序，也不依赖文件类型、标题、reviewer 名称或问题映射。BGE 需要额外安装 `pip install -e ".[rerank]"`；网页状态栏、顶部按钮和 `/health` 都会显示是否实际启用。CPU BGE 会显著增加交互延迟，应只在明确需要更高证据精度时手动启动。
 
 ### Docker Compose
 

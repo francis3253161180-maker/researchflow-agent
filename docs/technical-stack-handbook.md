@@ -191,12 +191,12 @@ RAG 的质量瓶颈可能位于解析、切块、召回、排序、上下文组�
 | --- | --- | --- |
 | HashEmbedding | 离线确定性测试 | 不是真实语义模型 |
 | FastEmbed | CPU 语义检索 | 首次需下载；用于第一阶段多语种向量召回 |
-| BGE reranker | CUDA 分片重排 | 仅有 CUDA 时由 `RERANKER_PROVIDER=auto` 启动；不参与整篇文档排序 |
+| BGE reranker | 分片重排 | `auto` 在 CUDA 自动启动、CPU 可手动启动；`bge` 可按设备配置强制启动；不参与整篇文档排序 |
 | OpenAI-compatible embedding | 远程服务 | 依赖网络、成本和密钥 |
 
 ### 高频问法
 
-**Embedding/Reranker需要GPU吗？** FastEmbed embedding 不需要 GPU，可在 CPU/ONNX 上运行。ResearchFlow 的 BGE reranker 则选择只在 CUDA 上运行：`auto` 检测到 GPU 才启用，CPU 环境不加载，避免交互延迟明显恶化。
+**Embedding/Reranker需要GPU吗？** FastEmbed embedding 不需要 GPU，可在 CPU/ONNX 上运行。BGE reranker 同时兼容 CPU 与 CUDA：`auto` 会优先自动使用 CUDA；CPU 默认不预加载，但可从网页顶部按钮手动启动。若预先知道需要它，也可设置 `RERANKER_PROVIDER=bge` 与 `RERANKER_DEVICE=cpu/cuda`。CPU 延迟明显更高。
 
 **为什么当前不用向量数据库？** V1 文档量小，应用内扫描更可理解和可测试；规模增长后再迁移 pgvector/Qdrant/Milvus 等。
 

@@ -5,7 +5,7 @@
 ResearchFlow uses a generic three-stage design:
 
 1. **First-stage hybrid retrieval:** BM25-style lexical scores and multilingual dense vectors are fused with RRF.
-2. **CUDA-compatible second-stage reranking:** with `RERANKER_PROVIDER=auto`, `BAAI/bge-reranker-v2-m3` starts only when CUDA is available and scores only bounded Top-N candidates as `(query, passage)` pairs. CPU-only startup keeps first-stage Hybrid RRF and does not load the cross-encoder.
+2. **Manually controllable second-stage reranking:** `BAAI/bge-reranker-v2-m3` scores only bounded Top-N candidates as `(query, passage)` pairs. `auto` loads it automatically on CUDA and exposes a CPU start button; `bge` loads it explicitly on the configured device; `none` force-disables it.
 3. **Grounded generation:** the Agent receives a configurable Top-K evidence set (default `RETRIEVAL_TOP_K=6`) and must cite it.
 
 The implementation does not contain paper titles, reviewer names, OpenReview field names, question-answer mappings, or language-specific keyword maps. Markdown headings, document titles and filenames are treated as ordinary metadata fields for every supported format; a uniquely matched metadata field can constrain a navigational query to the corresponding document section.
@@ -18,7 +18,7 @@ One passage is rarely sufficient for a multi-part question such as a review summ
 
 The BGE reranker has been downloaded and successfully loaded from `D:\ResearchFlow-runtime\models`. A fresh-index diagnostic on the Area Chair question returned only Meta Review evidence in both modes. BGE raised the detailed "strongest baselines" and "weaknesses" passages above unrelated material, but a Top-8 candidate rerank took approximately **20.7 seconds** versus **114 ms** for first-stage retrieval on this Windows CPU.
 
-The full 16-query CPU comparison exceeded a five-minute execution budget. The runtime therefore uses **`RERANKER_PROVIDER=auto`** by default: CUDA detected → load BGE and rerank chunks; no CUDA / no optional dependency → do not load BGE and use Hybrid RRF normally. `RERANKER_PROVIDER=none` remains available to force-disable it. A fixed QASPER full-text evaluation on an RTX 4090D improved evidence-recall proxy@4 from **0.4500** to **0.5500** with GPU BGE; details are recorded in [the full-text evaluation](fulltext-retrieval-evaluation.md).
+The full 16-query CPU comparison exceeded a five-minute execution budget. The runtime therefore uses **`RERANKER_PROVIDER=auto`** by default: CUDA detected → load BGE and rerank chunks; CPU → keep Hybrid RRF until the user deliberately presses the top-page BGE button. `RERANKER_PROVIDER=bge` explicitly loads BGE on `RERANKER_DEVICE=auto/cpu/cuda`; `none` force-disables it. A fixed QASPER full-text evaluation on an RTX 4090D improved evidence-recall proxy@4 from **0.4500** to **0.5500** with GPU BGE; details are recorded in [the full-text evaluation](fulltext-retrieval-evaluation.md).
 
 ## Reproducible checks
 

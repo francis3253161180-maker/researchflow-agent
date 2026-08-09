@@ -50,4 +50,4 @@ LLM 辅助判定可以识别明显遗漏和无依据结论，但与被测模型�
 
 ## 下一步
 
-以这套固定评测集为基线，项目提供了 `auto` 的 Top-N multilingual cross-encoder reranker 接口：它只在检测到 CUDA 时加载，并只接收 `(query, passage)` 对进行重排，不依赖文件标题、格式、reviewer 或问题映射。QASPER 全文固定评测已证明 GPU BGE 可提升证据召回；对于这套私有问答集，仍应在不泄露原文的前提下单独验证要点覆盖、证据支撑和延迟，不能把 QASPER 结果直接当作其答案质量结果。
+以这套固定评测集为基线，项目提供了可控的 Top-N multilingual cross-encoder reranker：`auto` 在 CUDA 自动加载、CPU 可由顶部按钮手动加载，`bge` 可按设备配置强制加载；它只接收 `(query, passage)` 对进行重排，不依赖文件标题、格式、reviewer 或问题映射。QASPER 全文固定评测已证明 GPU BGE 可提升证据召回；对于这套私有问答集，仍应在不泄露原文的前提下单独验证要点覆盖、证据支撑和延迟，不能把 QASPER 结果直接当作其答案质量结果。
