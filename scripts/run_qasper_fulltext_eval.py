@@ -26,6 +26,7 @@ import httpx
 
 from app.config import Settings
 from app.ingestion import ParsedDocument, TextBlock
+from app.retrieval import HybridRetriever
 from app.service import ResearchFlowService
 
 
@@ -135,13 +136,24 @@ def select_cases(data: dict, max_papers: int, max_queries: int, seed: int) -> li
     return selected
 
 
-def evaluate(data_path: Path, provider: str, max_papers: int, max_queries: int, seed: int) -> dict:
+def evaluate(
+    data_path: Path,
+    provider: str,
+    max_papers: int,
+    max_queries: int,
+    seed: int,
+    reranker_provider: str = "none",
+    reranker_device: str = "auto",
+) -> dict:
     data = json.loads(data_path.read_text(encoding="utf-8"))
     cases = select_cases(data, max_papers, max_queries, seed)
     if not cases:
         raise ValueError("No answerable QASPER cases selected")
 
-    results: dict[str, list[dict]] = {strategy: [] for strategy in ("lexical", "dense", "hybrid")}
+    strategies = ["lexical", "dense", "hybrid"]
+    if reranker_provider == "bge":
+        strategies.append("hybrid_bge_rerank")
+    results: dict[str, list[dict]] = {strategy: [] for strategy in strategies}
     grouped: dict[str, list[tuple[str, dict, dict, list[str]]]] = {}
     for case in cases:
         grouped.setdefault(case[0], []).append(case)
@@ -152,10 +164,17 @@ def evaluate(data_path: Path, provider: str, max_papers: int, max_queries: int, 
             # One isolated temporary index per paper is intentional: QASPER's
             # official task provides the current paper and tests evidence
             # retrieval inside it, rather than corpus-level source selection.
+            base = Settings.from_env()
             settings = Settings(
                 db_path=str(Path(directory) / f"qasper-{paper_index}.db"),
                 embedding_provider=provider,
-                fastembed_cache_dir="D:/ResearchFlow-runtime/models",
+                fastembed_model=base.fastembed_model,
+                fastembed_cache_dir=base.fastembed_cache_dir,
+                reranker_provider=reranker_provider,
+                reranker_model=base.reranker_model,
+                reranker_cache_dir=base.reranker_cache_dir,
+                reranker_device=reranker_device,
+                reranker_candidates=base.reranker_candidates,
             )
             service = ResearchFlowService(settings)
             blocks = paper_blocks(paper)
@@ -167,10 +186,15 @@ def evaluate(data_path: Path, provider: str, max_papers: int, max_queries: int, 
                 content="\n\n".join(block.content for block in blocks),
                 blocks=blocks,
             ))
+            # Use the same DB and embedding backend for the baseline. This
+            # avoids embedding the paper a second time solely for comparison.
+            baseline_retriever = HybridRetriever(service.db, service.retriever.embeddings)
             for _paper_id, _paper, question, evidence in paper_cases:
-                for strategy in results:
+                for strategy in strategies:
                     started = perf_counter()
-                    ranking = service.retriever.search(question["question"], top_k=4, strategy=strategy)
+                    retriever = service.retriever if strategy == "hybrid_bge_rerank" else baseline_retriever
+                    retrieval_strategy = "hybrid" if strategy == "hybrid_bge_rerank" else strategy
+                    ranking = retriever.search(question["question"], top_k=4, strategy=retrieval_strategy)
                     elapsed_ms = (perf_counter() - started) * 1000
                     rank = next(
                         (index for index, item in enumerate(ranking, start=1) if evidence_hit(item.content, evidence)),
@@ -205,6 +229,10 @@ def evaluate(data_path: Path, provider: str, max_papers: int, max_queries: int, 
             "warning": "This evaluates long-document evidence retrieval, not cross-document source routing or answer generation.",
         },
         "embedding_provider": provider,
+        "reranker": {
+            "provider": reranker_provider,
+            "device": reranker_device if reranker_provider != "none" else None,
+        },
         "summary": {strategy: summary(rows) for strategy, rows in results.items()},
         "details": results,
     }
@@ -214,13 +242,23 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Evaluate ResearchFlow full-text evidence retrieval on QASPER.")
     parser.add_argument("--dataset-root", type=Path, default=Path("D:/ResearchFlow-runtime/datasets"))
     parser.add_argument("--embedding-provider", choices=["hash", "fastembed"], default="fastembed")
+    parser.add_argument("--reranker-provider", choices=["none", "bge"], default="none")
+    parser.add_argument("--reranker-device", choices=["auto", "cpu", "cuda"], default="auto")
     parser.add_argument("--max-papers", type=int, default=30)
     parser.add_argument("--max-queries", type=int, default=60)
     parser.add_argument("--seed", type=int, default=20260809)
     parser.add_argument("--output", type=Path, default=ROOT / "evals" / "results" / "qasper_fulltext_fastembed.json")
     args = parser.parse_args()
     data_path = ensure_dataset(args.dataset_root)
-    report = evaluate(data_path, args.embedding_provider, args.max_papers, args.max_queries, args.seed)
+    report = evaluate(
+        data_path,
+        args.embedding_provider,
+        args.max_papers,
+        args.max_queries,
+        args.seed,
+        reranker_provider=args.reranker_provider,
+        reranker_device=args.reranker_device,
+    )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
     print(json.dumps(report["summary"], ensure_ascii=False, indent=2))
