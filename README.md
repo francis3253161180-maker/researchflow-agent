@@ -12,9 +12,9 @@ ResearchFlow 不是只调用一次模型的聊天壳。它把文档解析、知�
 
 ## 核心能力
 
-- **文档导入**：支持 PDF、DOCX、Markdown、TXT；PDF 按页解析，Markdown 标题作为分节元数据保存。
+- **文档导入**：支持 PDF、DOCX、XLSX、Markdown、TXT；PDF 按页解析，Markdown 标题与 Excel 工作表/行范围作为分节元数据保存。
 - **混合检索**：BM25 风格词法检索与向量相似度检索经 Reciprocal Rank Fusion (RRF) 合并排序。
-- **CPU 语义检索**：可选 FastEmbed + `BAAI/bge-small-zh-v1.5`（ONNX Runtime、512 维），不需要 GPU；默认哈希向量便于离线测试与快速启动。
+- **CPU 语义检索**：可选 FastEmbed 多语种 ONNX embedding，不需要 GPU；默认哈希向量便于离线测试与快速启动。
 - **LangGraph 编排**：`plan → retrieve / tool → answer → verify → persist`；数学表达式走受限计算工具，知识问答走 RAG。
 - **引用校验与重试**：RAG 回答必须有检索证据和 `[1]` 形式的引用标记；缺失时扩展查询并至多重试一次。
 - **可观测与会话记忆**：SQLite 持久化文档、分块、会话消息、路由、节点事件、校验状态、脱敏错误类型和延迟；网页可展开查看本次运行轨迹。
@@ -49,7 +49,7 @@ python -m pip install -e ".[dev]"
 uvicorn app.main:app --reload
 ```
 
-打开 [http://127.0.0.1:8000](http://127.0.0.1:8000)，或查看 [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)。网页可一次多选 PDF / DOCX / Markdown / TXT；选择后会自动逐个上传和解析，并汇总成功数、失败原因与分块数。随后可直接提问，查看带来源/页码的引用。
+打开 [http://127.0.0.1:8000](http://127.0.0.1:8000)，或查看 [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)。网页可一次多选 PDF / DOCX / XLSX / Markdown / TXT；选择后会自动逐个上传和解析，并汇总成功数、失败原因与分块数。随后可直接提问，查看带来源/页码或工作表行范围的引用。
 
 在 Windows 上，已完成一次依赖安装后，也可以直接双击项目根目录的 `ResearchFlow.bat` 启动服务并打开网页。
 
@@ -78,6 +78,7 @@ LLM_THINKING=disabled
 RERANKER_PROVIDER=none
 RERANKER_MODEL=BAAI/bge-reranker-v2-m3
 RERANKER_CACHE_DIR=./data/models
+RERANKER_DEVICE=auto
 RERANKER_CANDIDATES=20
 
 # 可选：保护全部 /api/* 路由
@@ -86,7 +87,7 @@ RESEARCHFLOW_APP_API_KEY=choose-a-strong-local-key
 
 如果设置了 `RESEARCHFLOW_APP_API_KEY`，调用 API 时需发送 `X-API-Key`。`/health` 保持开放，方便容器健康检查。切换 embedding provider 或模型后，已有文档的向量不能复用：请删除旧文档并重新导入。网页顶栏会显示当前检索后端；出现 `Hash 离线检索（不支持跨语言语义）` 时，不应期待中文问题能稳定命中英文证据。
 
-如需测试第二阶段重排，可额外安装 `pip install -e ".[rerank]"`，再将 `RERANKER_PROVIDER=bge`。它仅重排 Hybrid 的 Top-N 候选文本块，不依赖文件类型、标题、reviewer 名称或任何问题映射；务必先用端到端评测验证实际收益和 CPU 延迟，不能仅凭模型名称启用。
+如需测试第二阶段重排，可额外安装 `pip install -e ".[rerank]"`，再将 `RERANKER_PROVIDER=bge`。它仅重排 Hybrid 的 Top-N 候选文本块，不依赖文件类型、标题、reviewer 名称或任何问题映射。`RERANKER_DEVICE=auto` 会在有 CUDA 时使用 GPU；务必先用端到端评测验证实际收益和 CPU 延迟，不能仅凭模型名称启用。
 
 ### Docker Compose
 
@@ -102,7 +103,7 @@ docker compose up --build
 | 方法 | 路径 | 作用 |
 | --- | --- | --- |
 | `POST` | `/api/documents` | 写入粘贴的文本笔记 |
-| `POST` | `/api/documents/upload` | 上传 PDF/DOCX/MD/TXT 并解析 |
+| `POST` | `/api/documents/upload` | 上传 PDF/DOCX/XLSX/MD/TXT 并解析 |
 | `GET` / `DELETE` | `/api/documents` | 查看或删除知识库文档 |
 | `POST` | `/api/chat` | 执行一次 Agent 问答 |
 | `GET` | `/api/runs/{run_id}` | 回看路由、延迟、节点轨迹和校验状态 |
@@ -169,7 +170,7 @@ python scripts/run_eval.py --corpus-dir .. --embedding-provider fastembed
 
 ```text
 app/
-  ingestion.py     # PDF/DOCX/MD/TXT 解析及页码/分节元数据
+  ingestion.py     # PDF/DOCX/XLSX/MD/TXT 解析及页码/分节元数据
   retrieval.py     # 分块、BM25、向量后端与 RRF
   graph.py         # LangGraph 状态、节点、路由、校验与重试
   llm.py           # 离线回答与 OpenAI-compatible / DeepSeek 调用
@@ -189,6 +190,7 @@ FastAPI、LangGraph、SQLite 与配套框架的核心入门材料统一放在 [�
 
 - V1 使用 SQLite + 应用内向量扫描，适合本地单用户、小规模资料和演示；大规模语料应迁移到专用向量数据库并增加异步任务队列。
 - PDF 导入依赖文本层提取；扫描版 PDF、复杂双栏排版或图表中的文字需要在后续接入 OCR/版面解析，而不应被误称为“所有 PDF 均可可靠解析”。
+- XLSX 导入以只读方式序列化工作表行；公式以公式文本保留，不执行公式、宏或外部连接，因此不是电子表格自动化能力。
 - V1 的检索器已抽象为 provider，可替换为远程 embedding 服务；Reranker 暂未默认启用，避免一开始引入大模型下载、GPU 依赖与不可控延迟。
 - LangGraph 负责显式状态流转、条件边和重试；下一阶段可加入持久化 checkpointer、人工审阅中断、检索质量评测与前端流式输出。
 

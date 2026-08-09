@@ -18,7 +18,6 @@ class AgentState(TypedDict, total=False):
     session_id: str
     query: str
     document_ids: list[str] | None
-    scope_mode: str
     route: str
     plan: list[str]
     retrieved: list[dict[str, Any]]
@@ -49,14 +48,6 @@ def build_graph(db: Database, retriever: HybridRetriever, llm: LLMClient, retrie
         }
         document_ids = state.get("document_ids")
         scope_mode = "explicit" if document_ids is not None else "all_documents"
-        scope_request_detector = getattr(llm, "requests_document_scope", None)
-        if route == "rag" and document_ids is None and callable(scope_request_detector):
-            catalog = db.document_catalog()
-            if scope_request_detector(query, catalog):
-                automatic_ids = retriever.select_document_scope(query, catalog)
-                if automatic_ids:
-                    document_ids = automatic_ids
-                    scope_mode = "auto_metadata_rerank"
         return {
             "route": route,
             "plan": plans[route],

@@ -170,21 +170,3 @@ def test_explicit_document_scope_excludes_unselected_sources(tmp_path):
     assert results
     assert all(result.document_id == original_id for result in results)
     assert all(result.title == "original-review" for result in results)
-
-
-def test_auto_document_scope_is_used_when_a_planner_selects_source(tmp_path, monkeypatch):
-    service = make_service(tmp_path)
-    original_id, _ = service.ingest("original-review", "test", "原始审稿意见质疑理论假设。")
-    service.ingest("final-rebuttal", "test", "作者回复解释了理论假设。")
-    monkeypatch.setattr(
-        service.llm,
-        "requests_document_scope",
-        lambda query, catalog: True,
-    )
-    monkeypatch.setattr(service.retriever, "select_document_scope", lambda query, catalog: [original_id])
-
-    result = service.chat("只总结原始审稿意见中的理论质疑。")
-
-    assert result["scope_mode"] == "auto_metadata_rerank"
-    assert result["citations"]
-    assert all(item["document_id"] == original_id for item in result["citations"])

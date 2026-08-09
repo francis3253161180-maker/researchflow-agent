@@ -6,10 +6,11 @@ from io import BytesIO
 from pathlib import Path
 
 from docx import Document
+from openpyxl import load_workbook
 from pypdf import PdfReader
 
 
-SUPPORTED_EXTENSIONS = {".pdf", ".docx", ".md", ".txt"}
+SUPPORTED_EXTENSIONS = {".pdf", ".docx", ".xlsx", ".md", ".txt"}
 
 
 @dataclass(frozen=True)
@@ -58,10 +59,60 @@ def _markdown_blocks(text: str) -> list[TextBlock]:
     return [block for block in blocks if block.content]
 
 
+def _spreadsheet_blocks(payload: bytes) -> list[TextBlock]:
+    """Serialize an XLSX workbook as evidence-bearing table rows.
+
+    Each block records its worksheet and inclusive row range. Formulas are
+    preserved as formulas rather than executed; macros are never run. This
+    makes spreadsheet evidence inspectable without claiming spreadsheet-agent
+    capabilities that the service does not provide.
+    """
+    workbook = load_workbook(BytesIO(payload), read_only=True, data_only=False)
+    blocks: list[TextBlock] = []
+    for sheet in workbook.worksheets:
+        rows: list[str] = []
+        headers: list[str] = []
+        start_row: int | None = None
+        end_row: int | None = None
+
+        def flush() -> None:
+            nonlocal rows, start_row, end_row
+            if rows and start_row is not None and end_row is not None:
+                section = f"工作表：{sheet.title}｜行 {start_row}-{end_row}"
+                blocks.append(TextBlock(_normalize("\n".join(rows)), section=section))
+            rows = []
+            start_row = None
+            end_row = None
+
+        for row_number, cells in enumerate(sheet.iter_rows(), start=1):
+            values = ["" if cell.value is None else str(cell.value).strip() for cell in cells]
+            if not any(values):
+                continue
+            if not headers:
+                headers = [value or f"列{index}" for index, value in enumerate(values, start=1)]
+                continue
+            fields = [
+                f"{headers[index] if index < len(headers) else f'列{index + 1}'}：{value}"
+                for index, value in enumerate(values)
+                if value
+            ]
+            if not fields:
+                continue
+            rows.append(f"行 {row_number}｜" + "；".join(fields))
+            start_row = row_number if start_row is None else start_row
+            end_row = row_number
+            # Keep blocks compact enough that citations can point to a useful
+            # row range before generic text chunking applies its own split.
+            if len(rows) >= 40:
+                flush()
+        flush()
+    return blocks
+
+
 def parse_upload(filename: str, payload: bytes, source: str = "upload") -> ParsedDocument:
     suffix = Path(filename).suffix.lower()
     if suffix not in SUPPORTED_EXTENSIONS:
-        raise ValueError("only PDF, DOCX, Markdown, and TXT files are supported")
+        raise ValueError("only PDF, DOCX, XLSX, Markdown, and TXT files are supported")
     if not payload:
         raise ValueError("uploaded file is empty")
 
@@ -85,6 +136,12 @@ def parse_upload(filename: str, payload: bytes, source: str = "upload") -> Parse
         text = _normalize("\n".join([*paragraphs, *table_rows]))
         blocks = _markdown_blocks(text)
         media_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    elif suffix == ".xlsx":
+        try:
+            blocks = _spreadsheet_blocks(payload)
+        except Exception as exc:
+            raise ValueError("could not read XLSX workbook; encrypted or malformed files are not supported") from exc
+        media_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     else:
         text = _normalize(payload.decode("utf-8", errors="replace"))
         blocks = _markdown_blocks(text) if suffix == ".md" else [TextBlock(text)]

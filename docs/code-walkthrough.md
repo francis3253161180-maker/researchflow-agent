@@ -30,7 +30,10 @@ create_app
 class ChatRequest(BaseModel):
     query: str = Field(min_length=1, max_length=4000)
     session_id: str | None = None
+    document_ids: list[str] | None = None
 ```
+
+`document_ids` 是可选的强约束：为空时检索全库；用户在界面勾选文档后，检索层会在打分前排除其他文档。它不用于默认自然问法，也不替代混合检索和 BGE 段落重排。
 
 进入业务层前，Pydantic 已完成长度与类型校验。若设置 `RESEARCHFLOW_APP_API_KEY`，`require_api_key` 使用常量时间比较验证 `X-API-Key`。
 

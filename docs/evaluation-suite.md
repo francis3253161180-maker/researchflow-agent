@@ -1,11 +1,12 @@
 # Evaluation suite: what is measured, what is not
 
-ResearchFlow now uses three deliberately separate evaluation layers. They answer different questions and must not be combined into a single "accuracy" number.
+ResearchFlow now uses four deliberately separate evaluation layers. They answer different questions and must not be combined into a single "accuracy" number.
 
 | Layer | Corpus | What it tests | What it does not prove |
 | --- | --- | --- | --- |
 | Repository regression | Versioned `docs/` Markdown | Parsing, chunking and hybrid retrieval over project documentation | Real-world RAG quality |
 | Local review/rebuttal QA | MAC-KV and Holo OpenReview/rebuttal Markdown | Grounded answer coverage, citation syntax, abstention and source-scope compliance | General enterprise-document accuracy |
+| Natural role retrieval | The same four records, with source-neutral Chinese questions | Whether relevant reviewer/author passages are ranked before source-mixing passages | Answer faithfulness or reliable document-level filtering |
 | BEIR SciFact subset | External claims, abstracts and official qrels | General document retrieval with judged relevance | Full BEIR leaderboard performance or answer faithfulness |
 
 ## 1. Versioned documentation regression
@@ -46,7 +47,27 @@ D:\ResearchFlow-runtime\Scripts\python.exe scripts\run_portfolio_answer_eval.py 
 
 This is a failure-revealing baseline, not a marketing metric. The system handles several factual rebuttal questions but does **not** reliably honor constraints such as "only original reviews" or "do not include author rebuttal." A syntactically valid `[n]` citation is therefore not equivalent to source-scope compliance or claim-level faithfulness.
 
-## 3. External document retrieval: BEIR SciFact
+## 3. Natural reviewer/author retrieval and BGE reranking
+
+`evals/review_role_routing_cases.json` contains 12 questions such as “Reviewer Uv9P 对 FourierFT 基线公平性提出了什么质疑？” and “作者如何收缩 Holo 的机制主张？”. The query text contains **no file name, document ID, `original`/`rebuttal` phrase, or source-selection instruction**. Expected source labels remain evaluation-only.
+
+On one NVIDIA RTX 4090D (CUDA) with FastEmbed first-stage retrieval, the comparison was:
+
+| Strategy | Correct expected-document at rank 1 | Expected-document Recall@6 | Mean query latency |
+| --- | ---: | ---: | ---: |
+| Hybrid RRF | 0.5833 | 0.9167 | 523.21 ms |
+| Hybrid RRF + BGE rerank | **0.9167** | 0.9167 | 595.88 ms |
+
+This supports BGE as a **passage reranker** after first-stage recall. A separate document-identity Top-1 experiment reached only 0.6667, so document-level automatic source filtering is intentionally not enabled in the production graph. It could exclude the correct evidence before answer generation.
+
+Run on a CUDA machine after installing `.[rerank]`:
+
+```bash
+RERANKER_CACHE_DIR=/data/models RERANKER_DEVICE=cuda \
+python scripts/run_role_retrieval_eval.py --corpus-root /path/to/corpus --device cuda
+```
+
+## 4. External document retrieval: BEIR SciFact
 
 [BEIR SciFact](https://github.com/beir-cellar/beir/wiki/Datasets-available) provides scientific claims, paper abstracts and official relevance judgments in the standard corpus/queries/qrels format. `scripts/run_beir_scifact_subset_eval.py` downloads the public archive to `D:\ResearchFlow-runtime\datasets`, then evaluates a seeded subset so the V1 in-process linear retriever remains practical.
 

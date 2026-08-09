@@ -1,4 +1,7 @@
+from io import BytesIO
+
 from fastapi.testclient import TestClient
+from openpyxl import Workbook
 
 from app.config import Settings
 from app.main import create_app
@@ -83,6 +86,30 @@ def test_chat_document_scope_is_enforced_by_api(tmp_path):
         assert all(item["document_id"] == original_id for item in citations)
 
 
+def test_api_uploads_xlsx_with_sheet_row_citation(tmp_path):
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = "实验结果"
+    sheet.append(["方法", "准确率"])
+    sheet.append(["Holo", 85.43])
+    buffer = BytesIO()
+    workbook.save(buffer)
+
+    app = create_app(Settings(db_path=str(tmp_path / "xlsx.db")))
+    with TestClient(app) as client:
+        uploaded = client.post(
+            "/api/documents/upload",
+            files={"file": ("holo-results.xlsx", buffer.getvalue(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+        )
+        assert uploaded.status_code == 200
+
+        answered = client.post("/api/chat", json={"query": "Holo 的准确率是多少？"})
+        assert answered.status_code == 200
+        citation = answered.json()["citations"][0]
+        assert citation["filename"] == "holo-results.xlsx"
+        assert citation["section"] == "工作表：实验结果｜行 2-2"
+
+
 def test_optional_api_key_protects_api_routes(tmp_path):
     app = create_app(Settings(db_path=str(tmp_path / "secured.db"), app_api_key="test-secret"))
     with TestClient(app) as client:
@@ -102,4 +129,4 @@ def test_web_ui_exposes_upload_and_citation_surfaces(tmp_path):
         assert "检索范围" in page.text
         assert "scope-document" in page.text
         assert "page-aware citations" not in page.text  # UI stays Chinese-facing
-        assert "选择 PDF / DOCX / Markdown / TXT" in page.text
+        assert "选择 PDF / DOCX / XLSX / Markdown / TXT" in page.text
