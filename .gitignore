@@ -1,6 +1,7 @@
 __pycache__/
 .pytest_cache/
 .test-tmp/
+test-artifacts/
 .venv/
 *.pyc
 *.egg-info/
@@ -14,4 +15,6 @@ evals/results/review_rebuttal_answer_eval*.json
 evals/results/source_scope_rerank_eval*.json
 evals/results/role_retrieval_eval*.json
 evals/results/beir_scifact_subset*.json
+evals/results/qasper_fulltext_*.json
+evals/results/portfolio_multilingual_*.json
 *.db

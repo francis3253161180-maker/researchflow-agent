@@ -217,6 +217,10 @@ FastAPI、LangGraph、SQLite 与配套框架的核心入门材料统一放在 [�
 - [失败案例与调试](docs/failure-cases-and-debugging.md)：空语料、引用缺失、模型异常、解析、检索、SQLite 与 Docker 排错。
 - [动手练习](docs/hands-on-exercises.md)：从补测试到 Reranker、正式评测和存储迁移的分级任务。
 
+## Full-text evaluation boundary
+
+The public SciFact check is intentionally **abstract-level** and therefore does not demonstrate full-paper retrieval. The project separately evaluates long-document evidence retrieval on [QASPER](docs/fulltext-retrieval-evaluation.md), while local PDF/DOCX/XLSX regression checks cover supported-format parsing. These layers measure different things and must not be merged into one generic "accuracy" number.
+
 ## License
 
 MIT

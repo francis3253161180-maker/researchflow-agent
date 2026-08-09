@@ -1,6 +1,6 @@
 # Evaluation suite: what is measured, what is not
 
-ResearchFlow now uses four deliberately separate evaluation layers. They answer different questions and must not be combined into a single "accuracy" number.
+ResearchFlow now uses five deliberately separate evaluation layers. They answer different questions and must not be combined into a single "accuracy" number.
 
 | Layer | Corpus | What it tests | What it does not prove |
 | --- | --- | --- | --- |
@@ -8,6 +8,7 @@ ResearchFlow now uses four deliberately separate evaluation layers. They answer 
 | Local review/rebuttal QA | MAC-KV and Holo OpenReview/rebuttal Markdown | Grounded answer coverage, citation syntax, abstention and source-scope compliance | General enterprise-document accuracy |
 | Natural role retrieval | The same four records, with source-neutral Chinese questions | Whether relevant reviewer/author passages are ranked before source-mixing passages | Answer faithfulness or reliable document-level filtering |
 | BEIR SciFact subset | External claims, abstracts and official qrels | General document retrieval with judged relevance | Full BEIR leaderboard performance or answer faithfulness |
+| QASPER full-text evidence retrieval | Public full scientific papers, original questions and human evidence | Long-document chunking and passage-level evidence recall | Cross-document source routing, PDF layout parsing or answer generation |
 
 ## 1. Versioned documentation regression
 
@@ -67,9 +68,9 @@ RERANKER_CACHE_DIR=/data/models RERANKER_DEVICE=cuda \
 python scripts/run_role_retrieval_eval.py --corpus-root /path/to/corpus --device cuda
 ```
 
-## 4. External document retrieval: BEIR SciFact
+## 4. External abstract-level retrieval: BEIR SciFact
 
-[BEIR SciFact](https://github.com/beir-cellar/beir/wiki/Datasets-available) provides scientific claims, paper abstracts and official relevance judgments in the standard corpus/queries/qrels format. `scripts/run_beir_scifact_subset_eval.py` downloads the public archive to `D:\ResearchFlow-runtime\datasets`, then evaluates a seeded subset so the V1 in-process linear retriever remains practical.
+[BEIR SciFact](https://github.com/beir-cellar/beir/wiki/Datasets-available) provides scientific claims, **paper abstracts**, and official relevance judgments in the standard corpus/queries/qrels format. It is retained as an external, cross-document retrieval regression—not as a proof of full-paper retrieval. `scripts/run_beir_scifact_subset_eval.py` downloads the public archive to `D:\ResearchFlow-runtime\datasets`, then evaluates a seeded subset so the V1 in-process linear retriever remains practical.
 
 ```powershell
 D:\ResearchFlow-runtime\Scripts\python.exe scripts\run_beir_scifact_subset_eval.py `
@@ -84,8 +85,33 @@ Configuration: seed `20260809`, 1,000 documents, 100 test queries, official SciF
 
 | Strategy | Recall@10 | MRR@10 | Mean query latency |
 | --- | ---: | ---: | ---: |
-| Lexical | 0.8200 | 0.6652 | 736.30 ms |
-| Dense | 0.6600 | 0.4286 | 725.71 ms |
-| Hybrid RRF | **0.8300** | 0.6234 | 738.82 ms |
+| Lexical | 0.8200 | **0.6652** | 740.32 ms |
+| Dense | 0.6600 | 0.4286 | 727.51 ms |
+| Hybrid RRF | **0.8300** | 0.6284 | 731.38 ms |
 
-The result confirms that the first-stage retriever works beyond the project's own papers. It also shows that a strong lexical baseline remains competitive for scientific terminology, and that V1's Python/SQLite linear scan is not suitable for a large interactive corpus without a dedicated lexical/vector index. This is a controlled subset result, **not** a full-corpus BEIR leaderboard score.
+The result confirms that the first-stage retriever works beyond the project's own papers. It also shows that a strong lexical baseline remains competitive for scientific terminology, and that V1's Python/SQLite linear scan is not suitable for a large interactive corpus without a dedicated lexical/vector index. This is a controlled subset result, **not** a full-corpus BEIR leaderboard score or a full-text document result.
+
+## 5. External full-text evidence retrieval: QASPER
+
+[QASPER](https://aclanthology.org/2021.naacl-main.365/) contains 5,049 information-seeking questions over 1,585 NLP papers. Questions are written after seeing a paper title and abstract but require information from the paper's full text; separate annotators provide supporting evidence. This is the complementary long-document layer missing from SciFact.
+
+`scripts/run_qasper_fulltext_eval.py` downloads the public QASPER v0.3 train/dev archive to `D:\ResearchFlow-runtime\datasets` and evaluates a fixed development-set sample. The system indexes only title, abstract and full-text paragraphs. It never indexes answers or gold evidence. Each original question is searched within its associated paper, matching the dataset's document-level task. The question text itself contains no filename or document identifier.
+
+```powershell
+D:\ResearchFlow-runtime\Scripts\python.exe scripts\run_qasper_fulltext_eval.py `
+  --embedding-provider fastembed `
+  --max-papers 30 `
+  --max-queries 60
+```
+
+### Fixed full-text result — 2026-08-09
+
+Configuration: seed `20260809`, up to 30 QASPER development papers, 60 answerable original questions.
+
+| Strategy | Evidence-recall proxy@1 | Evidence-recall proxy@4 | MRR@4 | Mean query latency |
+| --- | ---: | ---: | ---: | ---: |
+| Lexical | 0.1833 | 0.4167 | 0.2750 | 28.32 ms |
+| Dense | 0.1500 | 0.4167 | 0.2556 | 26.92 ms |
+| Hybrid RRF | **0.2167** | **0.4500** | **0.3111** | 28.09 ms |
+
+The metric is deliberately named an **evidence-recall proxy**: a retrieved chunk counts when it contains a gold-evidence span or covers at least 72% of that span's normalized tokens, accommodating evidence that crosses a chunk boundary. These substantially lower numbers than SciFact are expected: this is a harder full-paper evidence task, and the result is a baseline that identifies long-context retrieval as the next quality bottleneck. It does not measure answer correctness, cross-document document selection, tables/figures, scanned PDFs, or multi-document synthesis.
