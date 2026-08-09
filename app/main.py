@@ -99,7 +99,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.post("/api/chat", response_model=ChatResponse)
     def chat(payload: ChatRequest, _: None = Depends(require_api_key)):
         service: ResearchFlowService = app.state.service
-        result = service.chat(payload.query, payload.session_id)
+        result = service.chat(payload.query, payload.session_id, payload.document_ids)
         return ChatResponse(
             run_id=result["run_id"],
             session_id=result["session_id"],

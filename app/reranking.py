@@ -24,7 +24,7 @@ class BGEReranker:
     after first-stage retrieval has selected a bounded candidate set.
     """
 
-    def __init__(self, model_name: str, cache_dir: str):
+    def __init__(self, model_name: str, cache_dir: str, device: str = "auto"):
         try:
             import torch
             from transformers import AutoModelForSequenceClassification, AutoTokenizer
@@ -34,8 +34,14 @@ class BGEReranker:
                 "Install with: pip install -e '.[rerank]'"
             ) from exc
         self.torch = torch
+        self.device = "cuda" if device == "auto" and torch.cuda.is_available() else device
+        if self.device not in {"cpu", "cuda"}:
+            raise ValueError("reranker device must be auto, cpu, or cuda")
+        if self.device == "cuda" and not torch.cuda.is_available():
+            raise RuntimeError("RERANKER_DEVICE=cuda requested but CUDA is unavailable")
         self.tokenizer = AutoTokenizer.from_pretrained(model_name, cache_dir=cache_dir)
         self.model = AutoModelForSequenceClassification.from_pretrained(model_name, cache_dir=cache_dir)
+        self.model.to(self.device)
         self.model.eval()
 
     def score(self, query: str, passages: list[str]) -> list[float]:
@@ -49,6 +55,7 @@ class BGEReranker:
             max_length=512,
             return_tensors="pt",
         )
+        inputs = {key: value.to(self.device) for key, value in inputs.items()}
         with self.torch.no_grad():
             logits = self.model(**inputs, return_dict=True).logits.view(-1).float()
         return [float(value) for value in logits.tolist()]

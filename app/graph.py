@@ -17,6 +17,8 @@ class AgentState(TypedDict, total=False):
     run_id: str
     session_id: str
     query: str
+    document_ids: list[str] | None
+    scope_mode: str
     route: str
     plan: list[str]
     retrieved: list[dict[str, Any]]
@@ -45,14 +47,41 @@ def build_graph(db: Database, retriever: HybridRetriever, llm: LLMClient, retrie
             "rag": ["检索科研文档", "基于证据生成答案", "校验引用完整性"],
             "direct": ["检查知识库状态", "生成受限回答"],
         }
-        return {"route": route, "plan": plans[route], "events": event(state, "plan", f"route={route}")}
+        document_ids = state.get("document_ids")
+        scope_mode = "explicit" if document_ids is not None else "all_documents"
+        scope_request_detector = getattr(llm, "requests_document_scope", None)
+        if route == "rag" and document_ids is None and callable(scope_request_detector):
+            catalog = db.document_catalog()
+            if scope_request_detector(query, catalog):
+                automatic_ids = retriever.select_document_scope(query, catalog)
+                if automatic_ids:
+                    document_ids = automatic_ids
+                    scope_mode = "auto_metadata_rerank"
+        return {
+            "route": route,
+            "plan": plans[route],
+            "document_ids": document_ids,
+            "scope_mode": scope_mode,
+            "events": event(state, "plan", f"route={route}; scope={scope_mode}"),
+        }
 
     def retrieve_node(state: AgentState) -> dict[str, Any]:
         query = state["query"]
         if state.get("retry_count", 0):
             query = f"{query} 方法 结果 结论"
-        results = [item.as_dict() for item in retriever.search(query, top_k=retrieval_top_k)]
-        return {"retrieved": results, "events": event(state, "retrieve", f"hits={len(results)}")}
+        document_ids = state.get("document_ids")
+        results = [
+            item.as_dict()
+            for item in retriever.search(
+                query,
+                top_k=retrieval_top_k,
+                document_ids=document_ids,
+            )
+        ]
+        scope = state.get("scope_mode", "all_documents")
+        if document_ids is not None:
+            scope = f"{scope}; documents={len(document_ids)}"
+        return {"retrieved": results, "events": event(state, "retrieve", f"hits={len(results)}; scope={scope}")}
 
     def tool_node(state: AgentState) -> dict[str, Any]:
         try:
@@ -64,7 +93,9 @@ def build_graph(db: Database, retriever: HybridRetriever, llm: LLMClient, retrie
         return {"tool_result": result, "errors": errors, "events": event(state, "tool", result or "tool_error")}
 
     def answer_node(state: AgentState) -> dict[str, Any]:
-        memory = db.get_messages(state["session_id"], limit=6)
+        # A source-scoped request must not inherit factual claims from an
+        # earlier answer produced over a different document set.
+        memory = [] if state.get("document_ids") is not None else db.get_messages(state["session_id"], limit=6)
         contexts = state.get("retrieved", [])
         try:
             answer = llm.generate(state["query"], contexts, memory, state.get("tool_result", ""))
@@ -157,11 +188,16 @@ def build_graph(db: Database, retriever: HybridRetriever, llm: LLMClient, retrie
     return graph.compile()
 
 
-def initial_state(session_id: str, query: str) -> AgentState:
+def initial_state(
+    session_id: str,
+    query: str,
+    document_ids: list[str] | None = None,
+) -> AgentState:
     return {
         "run_id": f"run_{uuid4().hex[:12]}",
         "session_id": session_id,
         "query": query,
+        "document_ids": document_ids,
         "retry_count": 0,
         "started_at": time.perf_counter(),
         "events": [],

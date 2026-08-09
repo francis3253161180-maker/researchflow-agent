@@ -55,7 +55,15 @@ class ResearchFlowService:
             **self.db.run_summary(),
         }
 
-    def chat(self, query: str, session_id: str | None = None) -> dict:
+    def chat(
+        self,
+        query: str,
+        session_id: str | None = None,
+        document_ids: list[str] | None = None,
+    ) -> dict:
         session_id = session_id or f"ses_{uuid4().hex[:12]}"
-        result = self.graph.invoke(initial_state(session_id, query), {"recursion_limit": 12})
+        result = self.graph.invoke(
+            initial_state(session_id, query, document_ids=document_ids),
+            {"recursion_limit": 12},
+        )
         return result

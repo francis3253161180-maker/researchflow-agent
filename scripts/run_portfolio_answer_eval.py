@@ -128,6 +128,7 @@ def run(
     provider: str,
     reranker_provider: str = "none",
     manifest_path: Path = MANIFEST,
+    scope_mode: str = "auto",
 ) -> dict[str, Any]:
     settings = Settings.from_env()
     if not (settings.llm_base_url and settings.llm_api_key and settings.llm_model):
@@ -152,10 +153,19 @@ def run(
         ingest_corpus(service, corpus_root, manifest["documents"])
         for case in manifest["cases"]:
             started = perf_counter()
-            result = service.chat(case["query"], session_id=f"eval_{case['id']}")
+            allowed_documents = case.get("allowed_documents")
+            document_ids = [
+                document["id"]
+                for document in service.documents()
+                if document["title"] in (allowed_documents or [])
+            ] if scope_mode == "explicit" and allowed_documents is not None else None
+            result = service.chat(
+                case["query"],
+                session_id=f"eval_{case['id']}",
+                document_ids=document_ids,
+            )
             citations = result.get("citations", [])
             markers_valid, markers = citation_marker_validity(result["answer"], citations)
-            allowed_documents = case.get("allowed_documents")
             source_compliant = (
                 all(item["title"] in allowed_documents for item in citations)
                 if allowed_documents is not None
@@ -192,6 +202,7 @@ def run(
             "corpus": manifest.get("protocol", {}).get("corpus", "local document corpus"),
             "cases": manifest.get("protocol", {}).get("cases", "manually authored grounded-QA cases"),
             "scoring": "declarative reference claims outside production code; deterministic citation-marker validation plus LLM-assisted evidence/rubric review",
+            "scope_mode": scope_mode,
             "limitation": "Small regression set and same-provider LLM judge; results are not a general accuracy claim or a replacement for blinded human review.",
         },
         "embedding_provider": provider,
@@ -207,10 +218,11 @@ def main() -> None:
     parser.add_argument("--corpus-root", type=Path, default=ROOT.parent)
     parser.add_argument("--embedding-provider", choices=["hash", "fastembed"], default="fastembed")
     parser.add_argument("--reranker-provider", choices=["none", "bge"], default="none")
+    parser.add_argument("--scope-mode", choices=["auto", "explicit", "all"], default="auto", help="auto uses source routing; explicit supplies each case's labelled allowed documents; all disables both.")
     parser.add_argument("--manifest", type=Path, default=MANIFEST, help="JSON manifest of documents and labelled cases.")
     parser.add_argument("--output", type=Path, default=ROOT / "evals" / "results" / "portfolio_answer_eval.json")
     args = parser.parse_args()
-    report = run(args.corpus_root, args.embedding_provider, args.reranker_provider, args.manifest)
+    report = run(args.corpus_root, args.embedding_provider, args.reranker_provider, args.manifest, args.scope_mode)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
     print(json.dumps(report["summary"], ensure_ascii=False, indent=2))

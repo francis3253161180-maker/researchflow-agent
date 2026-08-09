@@ -36,6 +36,10 @@ class MetricsResponse(BaseModel):
 class ChatRequest(BaseModel):
     query: str = Field(min_length=1, max_length=4000)
     session_id: str | None = None
+    # ``None`` means search the complete knowledge base.  A populated list is
+    # an explicit evidence boundary chosen by the caller/UI, not an attempt to
+    # infer source restrictions from natural-language wording.
+    document_ids: list[str] | None = Field(default=None, max_length=100)
 
 
 class Citation(BaseModel):

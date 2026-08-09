@@ -168,6 +168,41 @@ class Database:
             ).fetchall()
         return [dict(row) for row in rows]
 
+    def document_catalog(self, max_sections_per_document: int = 8) -> list[dict[str, Any]]:
+        """Return compact, non-content metadata for automatic source routing.
+
+        The planner sees titles, filenames and structural headings—not the
+        document body—so it can choose a provenance boundary without answering
+        the user's question from untrusted document text.
+        """
+        documents = self.list_documents()
+        with self.connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT document_id, section, MIN(position) AS first_position
+                FROM chunks
+                WHERE section IS NOT NULL AND section != ''
+                GROUP BY document_id, section
+                ORDER BY document_id, first_position
+                """
+            ).fetchall()
+        sections_by_document: dict[str, list[str]] = {}
+        for row in rows:
+            sections = sections_by_document.setdefault(row["document_id"], [])
+            if len(sections) < max_sections_per_document:
+                sections.append(row["section"])
+        return [
+            {
+                "id": document["id"],
+                "title": document["title"],
+                "filename": document["filename"],
+                "source": document["source"],
+                "media_type": document["media_type"],
+                "sections": sections_by_document.get(document["id"], []),
+            }
+            for document in documents
+        ]
+
     def delete_document(self, document_id: str) -> bool:
         with self.connect() as conn:
             result = conn.execute("DELETE FROM documents WHERE id = ?", (document_id,))

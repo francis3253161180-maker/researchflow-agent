@@ -58,6 +58,31 @@ def test_upload_lists_and_deletes_document(tmp_path):
         assert client.get("/api/documents").json() == []
 
 
+def test_chat_document_scope_is_enforced_by_api(tmp_path):
+    app = create_app(Settings(db_path=str(tmp_path / "scope.db")))
+    with TestClient(app) as client:
+        original = client.post(
+            "/api/documents",
+            json={"title": "原始审稿", "source": "test", "content": "原始审稿意见质疑理论假设，并要求补充实验设计与效率对比。"},
+        )
+        assert original.status_code == 200
+        original_id = original.json()["document_id"]
+        client.post(
+            "/api/documents",
+            json={"title": "作者回复", "source": "test", "content": "作者 rebuttal 回应了理论假设，并补充了实验设计与效率对比。"},
+        )
+
+        response = client.post(
+            "/api/chat",
+            json={"query": "理论假设与实验设计的意见是什么？", "document_ids": [original_id]},
+        )
+
+        assert response.status_code == 200
+        citations = response.json()["citations"]
+        assert citations
+        assert all(item["document_id"] == original_id for item in citations)
+
+
 def test_optional_api_key_protects_api_routes(tmp_path):
     app = create_app(Settings(db_path=str(tmp_path / "secured.db"), app_api_key="test-secret"))
     with TestClient(app) as client:
@@ -74,5 +99,7 @@ def test_web_ui_exposes_upload_and_citation_surfaces(tmp_path):
         assert "uploadSelectedFiles" in page.text
         assert "可多选；选择后自动上传并解析" in page.text
         assert "multiple" in page.text
+        assert "检索范围" in page.text
+        assert "scope-document" in page.text
         assert "page-aware citations" not in page.text  # UI stays Chinese-facing
         assert "选择 PDF / DOCX / Markdown / TXT" in page.text

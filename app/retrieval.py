@@ -186,7 +186,7 @@ def build_embedding_provider(settings: Settings) -> EmbeddingProvider:
 
 def build_reranker(settings: Settings) -> Reranker | None:
     if settings.reranker_provider == "bge":
-        return BGEReranker(settings.reranker_model, settings.reranker_cache_dir)
+        return BGEReranker(settings.reranker_model, settings.reranker_cache_dir, settings.reranker_device)
     return None
 
 
@@ -296,7 +296,40 @@ class HybridRetriever:
         )
         return document_id, count
 
-    def search(self, query: str, top_k: int = 4, strategy: str = "hybrid") -> list[SearchResult]:
+    def select_document_scope(self, query: str, catalog: list[dict]) -> list[str] | None:
+        """Use the optional cross-encoder to rank document identity metadata.
+
+        This is deliberately separate from passage reranking. A rebuttal can
+        mention every reviewer concern, so body-text similarity alone cannot
+        decide whether a user requested an original review or an author reply.
+        The cross-encoder receives only title, filename, source and headings.
+        """
+        if not self.reranker or not catalog:
+            return None
+        profiles = [
+            "\n".join(
+                part for part in [
+                    f"Title: {document['title']}",
+                    f"Filename: {document['filename']}" if document.get("filename") else "",
+                    f"Source: {document['source']}" if document.get("source") else "",
+                    f"Sections: {' | '.join(document.get('sections', []))}" if document.get("sections") else "",
+                ] if part
+            )
+            for document in catalog
+        ]
+        scores = self.reranker.score(query, profiles)
+        if not scores:
+            return None
+        best = max(range(len(scores)), key=scores.__getitem__)
+        return [catalog[best]["id"]]
+
+    def search(
+        self,
+        query: str,
+        top_k: int = 4,
+        strategy: str = "hybrid",
+        document_ids: list[str] | None = None,
+    ) -> list[SearchResult]:
         """Search with lexical, dense, or reciprocal-rank-fused ranking.
 
         ``strategy`` exists primarily to make evaluation comparisons honest:
@@ -306,6 +339,9 @@ class HybridRetriever:
         if strategy not in {"lexical", "dense", "hybrid"}:
             raise ValueError("strategy must be lexical, dense, or hybrid")
         chunks = self.db.list_chunks()
+        if document_ids is not None:
+            allowed = set(document_ids)
+            chunks = [chunk for chunk in chunks if chunk["document_id"] in allowed]
         if not chunks:
             return []
         query_tokens = tokenize(query)

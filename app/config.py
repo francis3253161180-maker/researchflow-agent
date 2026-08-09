@@ -21,6 +21,7 @@ class Settings:
     reranker_provider: str = "none"
     reranker_model: str = "BAAI/bge-reranker-v2-m3"
     reranker_cache_dir: str = "./data/models"
+    reranker_device: str = "auto"
     reranker_candidates: int = 20
     retrieval_top_k: int = 6
     app_api_key: str = ""
@@ -47,6 +48,7 @@ class Settings:
             reranker_provider=os.getenv("RERANKER_PROVIDER", "none").lower(),
             reranker_model=os.getenv("RERANKER_MODEL", "BAAI/bge-reranker-v2-m3"),
             reranker_cache_dir=os.getenv("RERANKER_CACHE_DIR", "./data/models"),
+            reranker_device=os.getenv("RERANKER_DEVICE", "auto").lower(),
             reranker_candidates=int(os.getenv("RERANKER_CANDIDATES", "20")),
             retrieval_top_k=int(os.getenv("RETRIEVAL_TOP_K", "6")),
             app_api_key=os.getenv("RESEARCHFLOW_APP_API_KEY", ""),
