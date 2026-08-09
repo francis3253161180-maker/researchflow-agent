@@ -40,7 +40,7 @@ flowchart TB
 | LlamaIndex | 数据/RAG 框架 | 文档 ingestion、index、retriever、query engine | 否，当前自研轻量链路 |
 | MCP | 工具与上下文协议 | client/server 间发现和调用工具/资源 | 是，独立 stdio Server 暴露检索、引用回查、计算与文档 Resource |
 | Dify/Coze | 低代码应用平台 | 快速编排、运营、发布和集成 | 否，ResearchFlow 是代码工程 |
-| FastEmbed | 推理库 | CPU embedding/reranker 推理 | 是，可选 embedding backend |
+| FastEmbed | 推理库 | CPU ONNX embedding 推理 | 是，可选 embedding backend；BGE reranker 由独立 Transformers 组件负责 |
 | vLLM | LLM 推理服务/引擎 | 高吞吐模型 serving | 否，调用外部 LLM API |
 
 ## 3. LangGraph 与 LangChain

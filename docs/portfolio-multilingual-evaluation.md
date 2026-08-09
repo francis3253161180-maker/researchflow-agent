@@ -26,7 +26,7 @@
 
 1. 多语种 embedding + BM25/RRF 对中文问题检索英文科研材料有明确收益；这里没有使用面向特定文档字段、评审角色或关键词的排序规则。
 2. 正确文档被召回不等于前四个 chunk 已是最佳作答证据；当前 0.5625 的证据提示命中说明候选重排仍有空间。
-3. 下一步以这份固定问题集评估可选多语种 cross-encoder reranker；只有证据命中增益显著且 CPU 延迟可接受时，才作为默认选项。
+3. QASPER 全文固定评测已验证 GPU BGE chunk reranker 的证据召回@4 从 0.4500 提升至 0.5500；当前采用 `auto`：有 CUDA 时启用，没有 CUDA 时保持 Hybrid RRF，不再要求 CPU reranker 延迟可接受。
 4. 切换 embedding provider/model 后必须删除旧文档并重新导入。
 
 ## 复现

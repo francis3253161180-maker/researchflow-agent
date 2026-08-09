@@ -74,7 +74,7 @@ DEEPSEEK_API_KEY=your_key_here
 LLM_THINKING=disabled
 
 # 可选：只对 Hybrid 检索的 Top-N 候选块执行通用 cross-encoder 重排。
-# 先在自己的语料上运行评测验证收益；默认关闭。
+# auto：仅在检测到 CUDA 时加载；无 GPU 时不加载、继续使用 Hybrid RRF。
 RERANKER_PROVIDER=auto
 RERANKER_MODEL=BAAI/bge-reranker-v2-m3
 RERANKER_CACHE_DIR=./data/models
