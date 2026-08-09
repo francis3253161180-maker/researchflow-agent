@@ -77,9 +77,9 @@ def test_xlsx_parser_keeps_sheet_and_row_range_for_citations():
     workbook = Workbook()
     sheet = workbook.active
     sheet.title = "实验结果"
-    sheet.append(["方法", "准确率", "备注"])
-    sheet.append(["Holo", 85.43, "低参数配置"])
-    sheet.append(["LoRA", 82.10, "baseline"])
+    sheet.append(["方法", "准确率", "备注", "设置"])
+    sheet.append(["Holo", 85.43, "低参数配置", "rank-8"])
+    sheet.append(["LoRA", 82.10, "baseline", "rank-8"])
     buffer = BytesIO()
     workbook.save(buffer)
 
@@ -88,7 +88,7 @@ def test_xlsx_parser_keeps_sheet_and_row_range_for_citations():
     assert parsed.media_type.endswith("spreadsheetml.sheet")
     assert "Holo" in parsed.content
     assert "准确率：85.43" in parsed.content
-    assert parsed.blocks[0].section == "工作表：实验结果｜行 2-3"
+    assert parsed.blocks[0].section == "工作表：实验结果｜行 1-3"
 
 
 def test_pdf_parser_preserves_page_number_and_text():

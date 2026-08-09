@@ -107,7 +107,7 @@ def test_api_uploads_xlsx_with_sheet_row_citation(tmp_path):
         assert answered.status_code == 200
         citation = answered.json()["citations"][0]
         assert citation["filename"] == "holo-results.xlsx"
-        assert citation["section"] == "工作表：实验结果｜行 2-2"
+        assert citation["section"] == "工作表：实验结果｜行 1-2"
 
 
 def test_optional_api_key_protects_api_routes(tmp_path):

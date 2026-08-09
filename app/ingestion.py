@@ -87,9 +87,18 @@ def _spreadsheet_blocks(payload: bytes) -> list[TextBlock]:
         for row_number, cells in enumerate(sheet.iter_rows(), start=1):
             values = ["" if cell.value is None else str(cell.value).strip() for cell in cells]
             if not any(values):
+                headers = []
                 continue
-            if not headers:
+            nonempty = [value for value in values if value]
+            text_like = [value for value in nonempty if not re.fullmatch(r"[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?(?:±\d+(?:\.\d*)?)?", value)]
+            # Workbooks often contain a few parameter-value records before a
+            # real table. A short row is ambiguous, so only adopt a header when
+            # it has several text labels; otherwise retain neutral column IDs.
+            if len(nonempty) >= 4 and len(text_like) >= 4:
                 headers = [value or f"列{index}" for index, value in enumerate(values, start=1)]
+                rows.append(f"行 {row_number}｜表头：" + "；".join(f"列{index + 1}：{value}" for index, value in enumerate(values) if value))
+                start_row = row_number if start_row is None else start_row
+                end_row = row_number
                 continue
             fields = [
                 f"{headers[index] if index < len(headers) else f'列{index + 1}'}：{value}"
