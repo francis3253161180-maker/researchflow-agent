@@ -17,7 +17,7 @@ class Reranker(Protocol):
 
 
 class BGEReranker:
-    """CPU cross-encoder backed by a Hugging Face BGE multilingual reranker.
+    """CUDA cross-encoder backed by a Hugging Face BGE multilingual reranker.
 
     This component knows nothing about file types, document titles, reviewer
     labels, or user questions. It only scores generic (query, passage) pairs

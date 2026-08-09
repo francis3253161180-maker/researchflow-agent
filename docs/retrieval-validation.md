@@ -5,7 +5,7 @@
 ResearchFlow uses a generic three-stage design:
 
 1. **First-stage hybrid retrieval:** BM25-style lexical scores and multilingual dense vectors are fused with RRF.
-2. **Optional second-stage reranking:** `BAAI/bge-reranker-v2-m3` scores only the bounded Top-N candidates as `(query, passage)` pairs.
+2. **CUDA-compatible second-stage reranking:** with `RERANKER_PROVIDER=auto`, `BAAI/bge-reranker-v2-m3` starts only when CUDA is available and scores only bounded Top-N candidates as `(query, passage)` pairs. CPU-only startup keeps first-stage Hybrid RRF and does not load the cross-encoder.
 3. **Grounded generation:** the Agent receives a configurable Top-K evidence set (default `RETRIEVAL_TOP_K=6`) and must cite it.
 
 The implementation does not contain paper titles, reviewer names, OpenReview field names, question-answer mappings, or language-specific keyword maps. Markdown headings, document titles and filenames are treated as ordinary metadata fields for every supported format; a uniquely matched metadata field can constrain a navigational query to the corresponding document section.
@@ -14,11 +14,11 @@ The implementation does not contain paper titles, reviewer names, OpenReview fie
 
 One passage is rarely sufficient for a multi-part question such as a review summary, experiment comparison, or design trade-off. Four passages were too easy to under-cover. Six is still a bounded context, while leaving room for the model to synthesize several independently retrieved facts. Configure `RETRIEVAL_TOP_K` from 1 to 8 if a different latency/context budget is required.
 
-## Reranker result on this Windows CPU
+## Reranker compatibility and measured trade-off
 
-The BGE reranker has been downloaded and successfully loaded from `D:\ResearchFlow-runtime\models`. A fresh-index diagnostic on the Area Chair question returned only Meta Review evidence in both modes. BGE raised the detailed "strongest baselines" and "weaknesses" passages above unrelated material, but a Top-8 candidate rerank took approximately **20.7 seconds** versus **114 ms** for first-stage retrieval on the same corpus and hardware.
+The BGE reranker has been downloaded and successfully loaded from `D:\ResearchFlow-runtime\models`. A fresh-index diagnostic on the Area Chair question returned only Meta Review evidence in both modes. BGE raised the detailed "strongest baselines" and "weaknesses" passages above unrelated material, but a Top-8 candidate rerank took approximately **20.7 seconds** versus **114 ms** for first-stage retrieval on this Windows CPU.
 
-The full 16-query CPU comparison exceeded a five-minute execution budget. Therefore BGE is intentionally **implemented but disabled by default** (`RERANKER_PROVIDER=none`). It is a useful optional precision mode for small, deliberate investigations; it is not an appropriate default for the local interactive web UI on this CPU.
+The full 16-query CPU comparison exceeded a five-minute execution budget. The runtime therefore uses **`RERANKER_PROVIDER=auto`** by default: CUDA detected → load BGE and rerank chunks; no CUDA / no optional dependency → do not load BGE and use Hybrid RRF normally. `RERANKER_PROVIDER=none` remains available to force-disable it. A fixed QASPER full-text evaluation on an RTX 4090D improved evidence-recall proxy@4 from **0.4500** to **0.5500** with GPU BGE; details are recorded in [the full-text evaluation](fulltext-retrieval-evaluation.md).
 
 ## Reproducible checks
 
@@ -29,8 +29,9 @@ D:\ResearchFlow-runtime\Scripts\python.exe -m pytest -q
 # First-stage multilingual retrieval evaluation over local portfolio files
 D:\ResearchFlow-runtime\Scripts\python.exe scripts\run_portfolio_multilingual_eval.py --corpus-root .. --embedding-provider fastembed --reranker-provider none
 
-# Optional BGE experiment (expect much higher CPU latency)
-$env:RERANKER_CANDIDATES='8'
+# Optional GPU BGE experiment: only run on a CUDA machine
+$env:RERANKER_PROVIDER='auto'
+$env:RERANKER_DEVICE='auto'
 D:\ResearchFlow-runtime\Scripts\python.exe scripts\run_portfolio_multilingual_eval.py --corpus-root .. --embedding-provider fastembed --reranker-provider bge --top-k 4
 ```
 

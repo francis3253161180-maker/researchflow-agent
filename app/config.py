@@ -18,7 +18,9 @@ class Settings:
     embedding_provider: str = "hash"
     fastembed_model: str = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
     fastembed_cache_dir: str = "./data/models"
-    reranker_provider: str = "none"
+    # ``auto`` enables the optional cross-encoder only when CUDA is genuinely
+    # available; ordinary CPU-only startup stays lightweight and offline.
+    reranker_provider: str = "auto"
     reranker_model: str = "BAAI/bge-reranker-v2-m3"
     reranker_cache_dir: str = "./data/models"
     reranker_device: str = "auto"
@@ -45,7 +47,7 @@ class Settings:
             embedding_provider=os.getenv("EMBEDDING_PROVIDER", "hash").lower(),
             fastembed_model=os.getenv("FASTEMBED_MODEL", "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"),
             fastembed_cache_dir=os.getenv("FASTEMBED_CACHE_DIR", "./data/models"),
-            reranker_provider=os.getenv("RERANKER_PROVIDER", "none").lower(),
+            reranker_provider=os.getenv("RERANKER_PROVIDER", "auto").lower(),
             reranker_model=os.getenv("RERANKER_MODEL", "BAAI/bge-reranker-v2-m3"),
             reranker_cache_dir=os.getenv("RERANKER_CACHE_DIR", "./data/models"),
             reranker_device=os.getenv("RERANKER_DEVICE", "auto").lower(),

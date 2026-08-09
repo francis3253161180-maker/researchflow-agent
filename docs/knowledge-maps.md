@@ -146,18 +146,21 @@ flowchart TB
     BM25[BM25-style ranking]
     VECTOR[Vector ranking]
     RRF[Reciprocal Rank Fusion]
-    TOPK[Top K evidence]
-    RERANK[Optional BGE reranker]
+    CANDIDATES[Top-N candidate chunks]
+    RERANK[Optional CUDA BGE chunk reranker]
+    TOPK[Top-K evidence]
 
     QUERY --> TOKEN --> BM25
     QUERY --> QEMB --> VECTOR
     BM25 --> RRF
     VECTOR --> RRF
-    RRF --> TOPK
-    TOPK -. future .-> RERANK
+    RRF --> CANDIDATES
+    CANDIDATES --> RERANK
+    CANDIDATES -. no CUDA .-> TOPK
+    RERANK -. CUDA available .-> TOPK
 ```
 
-关系：BM25擅长精确术语，embedding擅长语义近似，RRF融合排名；BGE reranker 已实现为可选第二阶段，但受当前 CPU 延迟约束，默认关闭。
+关系：BM25擅长精确术语，embedding擅长语义近似，RRF融合排名；BGE reranker 只对 Top-N 分片进行可选第二阶段重排。默认 `auto`：检测到 CUDA 才加载，否则直接使用 RRF 的结果，不会在 CPU 上启动 cross-encoder。
 
 ## 图 8：回答、引用与评测
 

@@ -3,7 +3,8 @@ from collections import Counter
 from app.config import Settings
 from app.db import Database
 from app.ingestion import TextBlock
-from app.retrieval import HashEmbedding, HybridRetriever, bm25_scores, chunk_text
+from app import retrieval
+from app.retrieval import HashEmbedding, HybridRetriever, bm25_scores, build_reranker, chunk_text
 from app.service import ResearchFlowService
 
 
@@ -89,6 +90,31 @@ def test_reranker_reorders_only_hybrid_candidates(tmp_path):
 
     assert hybrid[0].title == "second"
     assert {item.title for item in lexical} == {"first", "second"}
+
+
+def test_auto_reranker_skips_cleanly_without_cuda(monkeypatch):
+    monkeypatch.setattr(retrieval, "cuda_reranker_available", lambda: False)
+
+    assert build_reranker(Settings(reranker_provider="auto")) is None
+    # Backward-compatible explicit BGE configuration must not silently turn a
+    # CPU-only laptop into a multi-second per-query cross-encoder service.
+    assert build_reranker(Settings(reranker_provider="bge")) is None
+
+
+def test_auto_reranker_uses_cuda_when_available(monkeypatch):
+    captured = {}
+
+    class FakeBGEReranker:
+        def __init__(self, model_name, cache_dir, device):
+            captured.update(model_name=model_name, cache_dir=cache_dir, device=device)
+
+    monkeypatch.setattr(retrieval, "cuda_reranker_available", lambda: True)
+    monkeypatch.setattr(retrieval, "BGEReranker", FakeBGEReranker)
+
+    enabled = build_reranker(Settings(reranker_provider="auto", reranker_cache_dir="D:/models"))
+
+    assert isinstance(enabled, FakeBGEReranker)
+    assert captured["device"] == "cuda"
 
 
 def test_hybrid_preserves_candidates_from_lexical_and_dense_channels(tmp_path):

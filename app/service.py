@@ -12,6 +12,7 @@ from app.retrieval import HybridRetriever, build_embedding_provider, build_reran
 
 class ResearchFlowService:
     def __init__(self, settings: Settings):
+        self.settings = settings
         settings.ensure_directories()
         self.db = Database(settings.db_path)
         self.retriever = HybridRetriever(
@@ -52,6 +53,9 @@ class ResearchFlowService:
             "chunks": self.db.chunk_count(),
             "llm_configured": self.llm.configured,
             "embedding_provider": self.retriever.embeddings.__class__.__name__,
+            "reranker_requested": self.settings.reranker_provider,
+            "reranker_active": self.retriever.reranker is not None,
+            "reranker_provider": self.retriever.reranker.__class__.__name__ if self.retriever.reranker else "none",
             **self.db.run_summary(),
         }
 

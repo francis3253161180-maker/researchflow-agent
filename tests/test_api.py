@@ -12,6 +12,8 @@ def test_end_to_end_api(tmp_path):
     with TestClient(app) as client:
         health = client.get("/health")
         assert health.status_code == 200
+        assert health.json()["reranker_active"] is False
+        assert health.json()["reranker_provider"] == "none"
 
         created = client.post(
             "/api/documents",

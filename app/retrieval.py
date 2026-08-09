@@ -184,10 +184,34 @@ def build_embedding_provider(settings: Settings) -> EmbeddingProvider:
     return HashEmbedding()
 
 
+def cuda_reranker_available() -> bool:
+    """Return whether the optional BGE stage can run on a real CUDA device.
+
+    Importing torch here keeps CPU-only installs light: users who run the
+    default local demo do not need the optional Transformers/Torch dependency
+    merely to discover that reranking is unavailable.
+    """
+    try:
+        import torch
+    except ImportError:
+        return False
+    return bool(torch.cuda.is_available())
+
+
 def build_reranker(settings: Settings) -> Reranker | None:
-    if settings.reranker_provider == "bge":
-        return BGEReranker(settings.reranker_model, settings.reranker_cache_dir, settings.reranker_device)
-    return None
+    """Build a CUDA-only optional passage reranker.
+
+    ``auto`` is the normal setting: start BGE on CUDA when present and retain
+    Hybrid RRF alone everywhere else. ``none`` always disables it. ``bge`` is
+    retained for backward-compatible explicit configuration, but intentionally
+    does not silently fall back to an unusably slow CPU cross-encoder.
+    """
+    provider = settings.reranker_provider
+    if provider not in {"auto", "none", "bge"}:
+        raise ValueError("reranker_provider must be auto, none, or bge")
+    if provider == "none" or not cuda_reranker_available():
+        return None
+    return BGEReranker(settings.reranker_model, settings.reranker_cache_dir, "cuda")
 
 
 def cosine(left: list[float], right: list[float]) -> float:
