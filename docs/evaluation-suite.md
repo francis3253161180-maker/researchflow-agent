@@ -115,3 +115,14 @@ Configuration: seed `20260809`, up to 30 QASPER development papers, 60 answerabl
 | Hybrid RRF | **0.2167** | **0.4500** | **0.3111** | 28.09 ms |
 
 The metric is deliberately named an **evidence-recall proxy**: a retrieved chunk counts when it contains a gold-evidence span or covers at least 72% of that span's normalized tokens, accommodating evidence that crosses a chunk boundary. These substantially lower numbers than SciFact are expected: this is a harder full-paper evidence task, and the result is a baseline that identifies long-context retrieval as the next quality bottleneck. It does not measure answer correctness, cross-document document selection, tables/figures, scanned PDFs, or multi-document synthesis.
+
+### Optional GPU reranking result — NVIDIA RTX 4090D
+
+The same 60 fixed questions were rerun with `BAAI/bge-reranker-v2-m3` on CUDA. The first stage remains exactly the same Hybrid RRF. BGE receives only the question and the first-stage top-20 **text chunks**, then reranks those chunks; it does not rank full documents and it has no document-title, reviewer, filename, or question-mapping rule.
+
+| Strategy | Evidence-recall proxy@1 | Evidence-recall proxy@4 | MRR@4 | Mean warm-query latency |
+| --- | ---: | ---: | ---: | ---: |
+| Hybrid RRF | 0.2167 | 0.4500 | 0.3111 | 267.18 ms |
+| Hybrid RRF + BGE chunk rerank | **0.2667** | **0.5500** | **0.3722** | 560.86 ms |
+
+This is a meaningful +10.0 percentage-point Recall@4 improvement for an additional ~294 ms per warm query on that GPU. It justifies BGE as an **optional GPU second stage**, not as the CPU/local default. The evaluation process loads the model once, removes each paper from the temporary index after its questions, and does not include model-load time in the per-query latency.

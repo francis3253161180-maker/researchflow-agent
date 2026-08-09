@@ -26,7 +26,7 @@ import httpx
 
 from app.config import Settings
 from app.ingestion import ParsedDocument, TextBlock
-from app.retrieval import HybridRetriever
+from app.retrieval import HybridRetriever, build_reranker
 from app.service import ResearchFlowService
 
 
@@ -159,26 +159,47 @@ def evaluate(
         grouped.setdefault(case[0], []).append(case)
 
     with TemporaryDirectory() as directory:
-        for paper_index, (paper_id, paper_cases) in enumerate(grouped.items()):
+        # Model construction is deliberately outside the paper loop.  The
+        # benchmark needs isolated *documents*, not repeated model downloads
+        # or GPU weight loads.  Deleting each paper after its questions keeps
+        # candidate passages isolated while preserving realistic warm-model
+        # latency for the report.
+        base = Settings.from_env()
+        settings = Settings(
+            db_path=str(Path(directory) / "qasper.db"),
+            embedding_provider=provider,
+            fastembed_model=base.fastembed_model,
+            fastembed_cache_dir=base.fastembed_cache_dir,
+            reranker_provider="none",
+            reranker_model=base.reranker_model,
+            reranker_cache_dir=base.reranker_cache_dir,
+            reranker_device=reranker_device,
+            reranker_candidates=base.reranker_candidates,
+        )
+        service = ResearchFlowService(settings)
+        baseline_retriever = service.retriever
+        reranked_retriever = None
+        if reranker_provider == "bge":
+            reranker = build_reranker(Settings(
+                reranker_provider="bge",
+                reranker_model=base.reranker_model,
+                reranker_cache_dir=base.reranker_cache_dir,
+                reranker_device=reranker_device,
+            ))
+            reranked_retriever = HybridRetriever(
+                service.db,
+                service.retriever.embeddings,
+                reranker,
+                base.reranker_candidates,
+            )
+
+        for paper_id, paper_cases in grouped.items():
             paper = paper_cases[0][1]
             # One isolated temporary index per paper is intentional: QASPER's
             # official task provides the current paper and tests evidence
             # retrieval inside it, rather than corpus-level source selection.
-            base = Settings.from_env()
-            settings = Settings(
-                db_path=str(Path(directory) / f"qasper-{paper_index}.db"),
-                embedding_provider=provider,
-                fastembed_model=base.fastembed_model,
-                fastembed_cache_dir=base.fastembed_cache_dir,
-                reranker_provider=reranker_provider,
-                reranker_model=base.reranker_model,
-                reranker_cache_dir=base.reranker_cache_dir,
-                reranker_device=reranker_device,
-                reranker_candidates=base.reranker_candidates,
-            )
-            service = ResearchFlowService(settings)
             blocks = paper_blocks(paper)
-            service.ingest_parsed(ParsedDocument(
+            document_id, _chunk_count = service.ingest_parsed(ParsedDocument(
                 title=str(paper.get("title", paper_id)),
                 source="qasper-dev",
                 filename=f"{paper_id}.json",
@@ -186,13 +207,12 @@ def evaluate(
                 content="\n\n".join(block.content for block in blocks),
                 blocks=blocks,
             ))
-            # Use the same DB and embedding backend for the baseline. This
-            # avoids embedding the paper a second time solely for comparison.
-            baseline_retriever = HybridRetriever(service.db, service.retriever.embeddings)
             for _paper_id, _paper, question, evidence in paper_cases:
                 for strategy in strategies:
                     started = perf_counter()
-                    retriever = service.retriever if strategy == "hybrid_bge_rerank" else baseline_retriever
+                    retriever = reranked_retriever if strategy == "hybrid_bge_rerank" else baseline_retriever
+                    if retriever is None:  # pragma: no cover - guarded by strategies
+                        raise RuntimeError("reranked strategy requested without a reranker")
                     retrieval_strategy = "hybrid" if strategy == "hybrid_bge_rerank" else strategy
                     ranking = retriever.search(question["question"], top_k=4, strategy=retrieval_strategy)
                     elapsed_ms = (perf_counter() - started) * 1000
@@ -209,6 +229,8 @@ def evaluate(
                         "hit_at_4": rank is not None,
                         "latency_ms": round(elapsed_ms, 2),
                     })
+            if not service.delete_document(document_id):  # pragma: no cover - defensive cleanup
+                raise RuntimeError(f"Could not clear QASPER paper {paper_id} from the temporary index")
 
     def summary(rows: list[dict]) -> dict:
         return {

@@ -46,7 +46,21 @@ D:\ResearchFlow-runtime\Scripts\python.exe scripts\run_qasper_fulltext_eval.py `
   --output evals\results\qasper_fulltext_fastembed_20260809.json
 ```
 
-The 2026-08-09 fixed run gives Hybrid RRF evidence-recall proxy@4 of **0.4500** (60 questions), versus 0.4167 for both individual first-stage methods. This should be treated as an honest baseline, not an enterprise accuracy metric. It makes the next improvement target explicit: stronger long-context representations or a validated reranker, measured again on the same held-out protocol.
+The 2026-08-09 fixed run gives Hybrid RRF evidence-recall proxy@4 of **0.4500** (60 questions), versus 0.4167 for both individual first-stage methods. This should be treated as an honest baseline, not an enterprise accuracy metric.
+
+On the same fixed protocol, the optional `BAAI/bge-reranker-v2-m3` CUDA second stage improved evidence-recall proxy@4 to **0.5500** and MRR@4 from 0.3111 to **0.3722**. It reranks only Hybrid's top-20 candidate **chunks**, never full documents. The tradeoff on an NVIDIA RTX 4090D was 267.18 ms to 560.86 ms mean warm-query latency. This is enough evidence to keep it as an optional GPU setting; it is not a reason to make local CPU startup depend on a large cross-encoder.
+
+```bash
+# GPU experiment: same QASPER protocol, with chunk-level BGE reranking
+RERANKER_PROVIDER=bge RERANKER_DEVICE=cuda \
+python scripts/run_qasper_fulltext_eval.py \
+  --embedding-provider fastembed \
+  --reranker-provider bge \
+  --reranker-device cuda \
+  --max-papers 30 --max-queries 60
+```
+
+The next improvement target is therefore not arbitrary feature growth: it is a stronger long-context representation or a reranker configuration that must again be measured on this unchanged protocol.
 
 ## What this still does not test
 
