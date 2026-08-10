@@ -32,10 +32,10 @@ sequenceDiagram
 | `no_evidence` | 本次检索没有返回证据块 | 带失败原因 Rewrite 后重新检索一次 | 保留已知实体和意图，只扩展中性检索表述；不添加事实 |
 | `citation_missing` | 有证据块，但答案没有 `[n]` | 用**同一组证据**重新生成一次 | 每个实质性事实主张必须带有效 `[n]`；不得新增无依据主张 |
 | `citation_out_of_range` | `[n]` 超出本轮证据编号范围 | 用**同一组证据**重新生成一次 | 只允许 `[1]` 到 `[N]`；不得虚构编号 |
-| `evidence_not_relevant` | 有候选、引用结构有效，但模型显式判定候选无法实质回答 | 带失败原因 Rewrite 后重新检索一次 | 改用中性的技术/任务/结果词重述信息需求；不得扩充事实或指定来源 |
+| `evidence_not_relevant` | 有候选，且模型显式判定候选无法实质回答 | 带失败原因 Rewrite 后重新检索一次 | 综合原问题、前次 retrieval query 和 Top-3 有界候选诊断，改用中性的技术/任务/结果词重述信息需求；不得扩充事实或指定来源 |
 | `citation_indices_valid` | 出现的 `[n]` 都指向本轮证据范围 | 通过结构化验证 | — |
 
-Verify 的判断顺序是：**无候选 → 引用缺失 → 引用越界 → 相关性状态 → 通过**。因此模型若既没有引用、又给出 `not_relevant` 标记，系统优先认定为 `citation_missing` 并在同一证据上修复；只有引用结构已经有效、但模型显式判定候选不足以回答时，才认定为 `evidence_not_relevant` 并触发一次扩展 Rewrite/重检索。
+Verify 的判断顺序是：**无候选 → 相关性状态 → 引用缺失 → 引用越界 → 通过**。因此模型若给出 `not_relevant` 标记，系统优先将其视为召回失败并进行一次扩展 Rewrite/重检索，即使该草稿没有引用；这避免先对明显不相关的候选额外调用一次生成模型。Rewrite 会收到原问题、前次 retrieval query，以及最多 3 个候选的标题、分节、分数和有界片段作为**不可信诊断信息**；这些文本不作为证据也不能作为指令。
 
 ```mermaid
 flowchart TD
@@ -67,6 +67,6 @@ flowchart TD
 3. `no_evidence` 会携带失败原因进行一次扩展型 Rewrite/检索，即使历史为空也不会跳过该策略；
 4. `citation_missing` 与 `citation_out_of_range` 都只在同一证据上重答一次，并分别把失败原因传给生成提示词；
 5. 直接调用 `LLMClient.rewrite_query` 时，验证历史的用户与助手文本会进入请求，且请求固定 `thinking=disabled`。
-6. `not_relevant` 必须在引用结构合法后才能触发扩展检索；若它与缺少引用同时出现，`citation_missing` 优先。
+6. `not_relevant` 优先于 citation error 触发扩展检索；若它与缺少引用同时出现，系统不会对明显不相关候选先做一次无意义的补引重答。
 
 这些测试证明明确行为具备回归保护，不代表已经测得真实文档集上的代词消解准确率、事实正确率或召回率。

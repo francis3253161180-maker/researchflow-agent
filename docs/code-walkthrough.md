@@ -91,7 +91,7 @@ class ChatRequest(BaseModel):
 
 ## 6. rewrite 与 retrieve 节点
 
-RAG 路径先执行 `rewrite_node`：它只取同一会话最近 3 个、`verified=true` 的用户问题与助手回答，作为受限的指代消解上下文；这些回答不是事实证据，未验证回答不会进入上下文。模型生成不引入新事实的 standalone Query；正常首问没有可信历史、离线模式或模型格式异常时安全回退原 Query。`HybridRetriever.search` 使用 `retrieval_query` 返回由 `RETRIEVAL_TOP_K` 控制的候选证据（默认 6 条）。若首轮 `no_evidence` 或引用结构已合法但模型返回 `evidence_not_relevant`，会携带对应失败原因进行一次中性扩展改写并重新检索。
+RAG 路径先执行 `rewrite_node`：它只取同一会话最近 3 个、`verified=true` 的用户问题与助手回答，作为受限的指代消解上下文；这些回答不是事实证据，未验证回答不会进入上下文。模型生成不引入新事实的 standalone Query；正常首问没有可信历史、离线模式或模型格式异常时安全回退原 Query。`HybridRetriever.search` 使用 `retrieval_query` 返回由 `RETRIEVAL_TOP_K` 控制的候选证据（默认 6 条）。若首轮 `no_evidence` 或模型明确返回 `evidence_not_relevant`，会携带对应失败原因进行一次中性扩展改写并重新检索；后者还会传入原问题、前次 retrieval query 与 Top-3 有界候选诊断。
 
 这不是基于文档标题、章节或问题映射表的硬编码。改写输出、原因和实际检索 Query 会写进 run，便于检查其是否真的生效。
 
@@ -123,7 +123,7 @@ RAG 路径先执行 `rewrite_node`：它只取同一会话最近 3 个、`verifi
 
 | route | 当前标准 |
 | --- | --- |
-| `rag` | 依次判断 `no_evidence`、`citation_missing` / `citation_out_of_range`、`evidence_not_relevant`、`citation_indices_valid` |
+| `rag` | 依次判断 `no_evidence`、`evidence_not_relevant`、`citation_missing` / `citation_out_of_range`、`citation_indices_valid` |
 | `tool` | `tool_result` 非空 |
 | `direct` | answer 非空 |
 
@@ -134,7 +134,7 @@ RAG 路径先执行 `rewrite_node`：它只取同一会话最近 3 个、`verifi
 若 RAG 未通过校验：
 
 1. `verify_node` 增加 `retry_count` 并给出失败类型；
-2. `no_evidence` 首次失败回到 `retrieve`，并让 Rewrite 仅扩展中性检索表述；引用缺失首次失败回到 `answer`，要求同证据下每个实质性主张带有效 `[n]`；引用越界首次失败也回到 `answer`，但明确限制编号只能是 `[1]..[N]`；只有这两类引用结构均通过后，`evidence_not_relevant` 才回到 `retrieve`；
+2. `no_evidence` 首次失败回到 `retrieve`，并让 Rewrite 仅扩展中性检索表述；`evidence_not_relevant` 也优先回到 `retrieve`，并让 Rewrite 对照原问题、前次 query 与有界候选诊断改写；引用缺失首次失败回到 `answer`，要求同证据下每个实质性主张带有效 `[n]`；引用越界首次失败也回到 `answer`，但明确限制编号只能是 `[1]..[N]`；
 3. 第二次验证后无论成功与否都进入 `persist`。
 
 业务规则限制一次重试；`recursion_limit=12` 是框架层兜底，二者不要混为一谈。

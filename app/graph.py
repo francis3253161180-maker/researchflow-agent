@@ -156,7 +156,13 @@ def build_graph(db: Database, retriever: HybridRetriever, llm: LLMClient, retrie
         if state.get("retry_count", 0) and retry_reason in {"no_evidence", "evidence_not_relevant"}:
             history = trusted_short_term_history(db, state["session_id"])
             retry_rewrite = (
-                llm.rewrite_query(query, history, failure_reason=str(retry_reason))
+                llm.rewrite_query(
+                    state["query"],
+                    history,
+                    failure_reason=str(retry_reason),
+                    previous_retrieval_query=query,
+                    retrieval_diagnostics=state.get("retrieved", []),
+                )
                 if hasattr(llm, "rewrite_query")
                 else {"retrieval_query": query, "rewritten": False, "reason": "rewriter_unavailable"}
             )
@@ -194,11 +200,15 @@ def build_graph(db: Database, retriever: HybridRetriever, llm: LLMClient, retrie
         # earlier answer produced over a different document set.
         memory = [] if state.get("document_ids") is not None else history_as_messages(trusted_short_term_history(db, state["session_id"]))
         contexts = state.get("retrieved", [])
+        citation_retry = state.get("retry_count", 0) > 0 and state.get("verify_reason") in {
+            "citation_missing",
+            "citation_out_of_range",
+        }
         try:
             answer = llm.generate(
                 state["query"], contexts, memory, state.get("tool_result", ""), state.get("thinking_mode"),
-                citation_retry=state.get("retry_count", 0) > 0 and state.get("verify_reason") in {"citation_missing", "citation_out_of_range"},
-                citation_failure_reason=state.get("verify_reason", "") if state.get("retry_count", 0) > 0 else "",
+                citation_retry=citation_retry,
+                citation_failure_reason=state.get("verify_reason", "") if citation_retry else "",
             )
             errors = state.get("errors", [])
         except Exception as exc:
@@ -236,15 +246,16 @@ def build_graph(db: Database, retriever: HybridRetriever, llm: LLMClient, retrie
             indices = [int(index) for index in re.findall(r"\[(\d+)\]", state.get("answer", ""))]
             if not citations:
                 verified, verify_reason = False, "no_evidence"
+            elif state.get("evidence_status") == "not_relevant":
+                # A model's explicit relevance verdict is a recall repair:
+                # retry retrieval once before spending another generation on
+                # the same candidate set.  The verdict itself is a structured
+                # protocol field, never inferred from refusal wording.
+                verified, verify_reason = False, "evidence_not_relevant"
             elif not indices:
                 verified, verify_reason = False, "citation_missing"
             elif any(index < 1 or index > len(citations) for index in indices):
                 verified, verify_reason = False, "citation_out_of_range"
-            elif state.get("evidence_status") == "not_relevant":
-                # A relevance verdict is useful only after the answer has met
-                # basic citation structure.  Otherwise a missing/invalid
-                # citation is a generation repair, not a recall repair.
-                verified, verify_reason = False, "evidence_not_relevant"
             else:
                 verified, verify_reason = True, "citation_indices_valid"
         elif route == "tool":

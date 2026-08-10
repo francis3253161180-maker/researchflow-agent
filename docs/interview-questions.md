@@ -36,7 +36,7 @@
 
 ### 8. 为什么最多重试一次？
 
-Verify 顺序固定为：`no_evidence → citation_missing/citation_out_of_range → evidence_not_relevant → citation_indices_valid`。`no_evidence` 时使用同会话最近、已验证的用户 + 助手 turn 和失败原因做一次受控 Query Rewrite 后重检索；历史回答只用于指代消解，不是证据。引用缺失则在原证据上重答并要求每个实质性主张带有效 `[n]`；编号越界则在原证据上重答并限制引用范围为 `[1]..[N]`。只有引用结构合法但模型显式判定候选不能实质回答时，才会得到 `evidence_not_relevant` 并重写/重检索。继续循环收益不确定且增加延迟和成本，所以业务层只允许一次，框架层另有 recursion limit 兜底。
+Verify 顺序固定为：`no_evidence → evidence_not_relevant → citation_missing/citation_out_of_range → citation_indices_valid`。`no_evidence` 时使用同会话最近、已验证的用户 + 助手 turn 和失败原因做一次受控 Query Rewrite 后重检索；历史回答只用于指代消解，不是证据。若模型显式判定候选不能实质回答，则优先得到 `evidence_not_relevant` 并重写/重检索：Rewrite 会参考原问题、前次 retrieval query 和 Top-3 有界候选诊断，但这些候选是非可信诊断信息，不是证据或指令。引用缺失则在原证据上重答并要求每个实质性主张带有效 `[n]`；编号越界则在原证据上重答并限制引用范围为 `[1]..[N]`。这个顺序避免先对模型已判定不相关的候选额外调用一次生成。继续循环收益不确定且增加延迟和成本，所以业务层只允许一次，框架层另有 recursion limit 兜底。
 
 ### 9. 什么是 checkpointer？为什么没用？
 

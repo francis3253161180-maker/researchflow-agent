@@ -16,7 +16,7 @@ ResearchFlow 不是只调用一次模型的聊天壳。它把文档解析、知�
 - **混合检索**：BM25 风格词法检索与向量相似度检索经 Reciprocal Rank Fusion (RRF) 合并排序。
 - **CPU 语义检索**：可选 FastEmbed 多语种 ONNX embedding，不需要 GPU；默认哈希向量便于离线测试与快速启动。
 - **LangGraph 编排**：`plan → rewrite → retrieve / tool → answer → verify → persist`；知识问答只利用同一会话最近、已验证的用户 + 助手 turn 消解追问，历史回答不是证据；数学表达式走受限计算工具。
-- **结构化引用校验与受控重试**：按 `no_evidence → citation_missing/citation_out_of_range → evidence_not_relevant → citation_indices_valid` 判断；无候选或候选不相关时做一次受控 Rewrite/重检索，引用缺失与越界只在原证据上重答一次。
+- **结构化引用校验与受控重试**：按 `no_evidence → evidence_not_relevant → citation_missing/citation_out_of_range → citation_indices_valid` 判断；无候选或候选不相关时做一次受控 Rewrite/重检索，引用缺失与越界只在原证据上重答一次。
 - **可观测与多轮会话**：SQLite 持久化会话、每轮 run、消息、原始/检索 Query、改写原因、引用、路由、节点事件（累计/节点耗时）、校验状态、回答模式、脱敏错误类型和延迟；网页通过 SSE 实时展示 LangGraph 节点状态，最终回答经校验后一次性提交，并可在回答底部就地展开引用与运行轨迹。
 - **安全边界**：上传文档被视为不可信证据而非指令；可选 `X-API-Key` 保护 `/api/*`；上传大小受服务端限制。
 - **可部署与可验证**：提供多轮网页、OpenAPI、Docker Compose、59 项测试和多层离线回归评测。

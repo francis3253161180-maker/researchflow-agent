@@ -58,7 +58,7 @@ def test_missing_citations_retry_exactly_once(tmp_path):
 
 def test_follow_up_uses_rewritten_retrieval_query_and_persists_trace(tmp_path):
     class FollowUpLLM:
-        def rewrite_query(self, query, history, failure_reason=""):
+        def rewrite_query(self, query, history, failure_reason="", previous_retrieval_query="", retrieval_diagnostics=None):
             if query == "它在 GSM8K 上表现如何？":
                 assert history == [
                     {
@@ -128,7 +128,7 @@ def test_no_evidence_rewrites_and_retrieves_once_before_stopping(tmp_path):
             self.rewrite_failures = []
             self.rewrite_histories = []
 
-        def rewrite_query(self, query, history, failure_reason=""):
+        def rewrite_query(self, query, history, failure_reason="", previous_retrieval_query="", retrieval_diagnostics=None):
             self.rewrite_failures.append(failure_reason)
             self.rewrite_histories.append(history)
             return {
@@ -163,10 +163,14 @@ def test_not_relevant_evidence_status_rewrites_and_retrieves_once(tmp_path):
     class RelevanceAwareLLM:
         def __init__(self):
             self.rewrite_failures = []
+            self.retry_diagnostics = []
+            self.previous_retrieval_queries = []
             self.answers = 0
 
-        def rewrite_query(self, query, history, failure_reason=""):
+        def rewrite_query(self, query, history, failure_reason="", previous_retrieval_query="", retrieval_diagnostics=None):
             self.rewrite_failures.append(failure_reason)
+            self.retry_diagnostics.append(retrieval_diagnostics)
+            self.previous_retrieval_queries.append(previous_retrieval_query)
             return {
                 "retrieval_query": f"{query} alternative terminology" if failure_reason else query,
                 "rewritten": bool(failure_reason),
@@ -190,11 +194,14 @@ def test_not_relevant_evidence_status_rewrites_and_retrieves_once(tmp_path):
     assert result["evidence_status"] == "grounded"
     assert result["retry_count"] == 1
     assert llm.rewrite_failures == ["", "evidence_not_relevant"]
+    assert llm.previous_retrieval_queries == ["", "What is the target finding?"]
+    assert llm.retry_diagnostics[1][0]["title"] == "Candidate"
+    assert "may not answer" in llm.retry_diagnostics[1][0]["content"]
     assert len([item for item in result["events"] if item["node"] == "retrieve"]) == 2
     assert "evidence_status" not in result["answer"]
 
 
-def test_citation_validation_precedes_not_relevant_status(tmp_path):
+def test_not_relevant_status_precedes_citation_validation(tmp_path):
     class CitationFirstLLM:
         def __init__(self):
             self.calls = 0
@@ -215,8 +222,8 @@ def test_citation_validation_precedes_not_relevant_status(tmp_path):
 
     assert result["verified"] is True
     assert result["retry_count"] == 1
-    assert llm.failure_reasons == ["", "citation_missing"]
-    assert len([item for item in result["events"] if item["node"] == "retrieve"]) == 1
+    assert llm.failure_reasons == ["", ""]
+    assert len([item for item in result["events"] if item["node"] == "retrieve"]) == 2
 
 
 def test_evidence_status_marker_is_optional_and_removed_from_visible_answer():
@@ -233,7 +240,7 @@ def test_unverified_turn_is_excluded_from_follow_up_rewrite_context(tmp_path):
         def __init__(self):
             self.histories = []
 
-        def rewrite_query(self, query, history, failure_reason=""):
+        def rewrite_query(self, query, history, failure_reason="", previous_retrieval_query="", retrieval_diagnostics=None):
             if not failure_reason:
                 self.histories.append(history)
             return {"retrieval_query": query, "rewritten": False, "reason": "test"}
