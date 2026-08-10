@@ -263,6 +263,7 @@ def test_web_ui_exposes_upload_and_citation_surfaces(tmp_path):
         assert "streamChat" in page.text
         assert "pending-turn" in page.text
         assert "progress-steps" in page.text
+        assert "progress-arrow" in page.text
         assert "align-self:flex-end" in page.text
         assert "researchflow-sidebar-width" in page.text
         assert ".turn { display:flex;" in page.text
