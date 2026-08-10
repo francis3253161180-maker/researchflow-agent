@@ -1,6 +1,6 @@
 from app.config import Settings
 from app.db import Database
-from app.graph import build_graph, initial_state
+from app.graph import build_graph, initial_state, strip_evidence_status_marker
 from app.llm import LLMConnectionError
 from app.retrieval import HashEmbedding, HybridRetriever
 from app.service import ResearchFlowService
@@ -157,6 +157,75 @@ def test_no_evidence_rewrites_and_retrieves_once_before_stopping(tmp_path):
     assert llm.rewrite_histories == [[], []]
     assert result["retrieval_query"].endswith(" evidence")
     assert len([item for item in result["events"] if item["node"] == "retrieve"]) == 2
+
+
+def test_not_relevant_evidence_status_rewrites_and_retrieves_once(tmp_path):
+    class RelevanceAwareLLM:
+        def __init__(self):
+            self.rewrite_failures = []
+            self.answers = 0
+
+        def rewrite_query(self, query, history, failure_reason=""):
+            self.rewrite_failures.append(failure_reason)
+            return {
+                "retrieval_query": f"{query} alternative terminology" if failure_reason else query,
+                "rewritten": bool(failure_reason),
+                "reason": "expand_after_irrelevant_candidates" if failure_reason else "already_standalone",
+            }
+
+        def generate(self, query, contexts, memory, tool_result="", thinking_mode=None, citation_retry=False, citation_failure_reason=""):
+            self.answers += 1
+            if self.answers == 1:
+                return "The retrieved passages do not answer the question. [1] <!-- evidence_status: not_relevant -->"
+            return "The retried evidence supports this answer. [1] <!-- evidence_status: grounded -->"
+
+    db = Database(str(tmp_path / "not-relevant.db"))
+    retriever = HybridRetriever(db, HashEmbedding())
+    retriever.ingest("Candidate", "unit-test", "A chunk is returned for the question but may not answer it.")
+    llm = RelevanceAwareLLM()
+    result = build_graph(db, retriever, llm).invoke(initial_state("not_relevant_session", "What is the target finding?"), {"recursion_limit": 12})
+
+    assert result["verified"] is True
+    assert result["verify_reason"] == "citation_indices_valid"
+    assert result["evidence_status"] == "grounded"
+    assert result["retry_count"] == 1
+    assert llm.rewrite_failures == ["", "evidence_not_relevant"]
+    assert len([item for item in result["events"] if item["node"] == "retrieve"]) == 2
+    assert "evidence_status" not in result["answer"]
+
+
+def test_citation_validation_precedes_not_relevant_status(tmp_path):
+    class CitationFirstLLM:
+        def __init__(self):
+            self.calls = 0
+            self.failure_reasons = []
+
+        def generate(self, query, contexts, memory, tool_result="", thinking_mode=None, citation_retry=False, citation_failure_reason=""):
+            self.calls += 1
+            self.failure_reasons.append(citation_failure_reason)
+            if self.calls == 1:
+                return "No material answer is available. <!-- evidence_status: not_relevant -->"
+            return "The existing evidence supports this answer. [1] <!-- evidence_status: grounded -->"
+
+    db = Database(str(tmp_path / "citation-first.db"))
+    retriever = HybridRetriever(db, HashEmbedding())
+    retriever.ingest("Evidence", "unit-test", "This evidence chunk is available to both generation attempts.")
+    llm = CitationFirstLLM()
+    result = build_graph(db, retriever, llm).invoke(initial_state("citation_first", "What is supported?"), {"recursion_limit": 12})
+
+    assert result["verified"] is True
+    assert result["retry_count"] == 1
+    assert llm.failure_reasons == ["", "citation_missing"]
+    assert len([item for item in result["events"] if item["node"] == "retrieve"]) == 1
+
+
+def test_evidence_status_marker_is_optional_and_removed_from_visible_answer():
+    answer, status = strip_evidence_status_marker("Answer [1] <!-- evidence_status: grounded -->")
+    assert answer == "Answer [1]"
+    assert status == "grounded"
+    unchanged, missing = strip_evidence_status_marker("Answer without the optional protocol marker.")
+    assert unchanged == "Answer without the optional protocol marker."
+    assert missing == "not_reported"
 
 
 def test_unverified_turn_is_excluded_from_follow_up_rewrite_context(tmp_path):

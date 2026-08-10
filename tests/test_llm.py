@@ -88,6 +88,31 @@ def test_no_evidence_rewrite_calls_model_without_history_and_uses_expansion_stra
     assert captured["payload"]["thinking"] == {"type": "disabled"}
 
 
+def test_not_relevant_rewrite_uses_distinct_recall_repair_strategy(monkeypatch):
+    captured = {}
+
+    class FakeResponse:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {"choices": [{"message": {"content": '{"standalone_query":"HoloQuant metric benchmark","rewritten":true,"reason":"alternative_vocabulary"}'}}]}
+
+    def fake_post(_url, headers, json, timeout):
+        captured.update({"headers": headers, "payload": json, "timeout": timeout})
+        return FakeResponse()
+
+    monkeypatch.setattr(llm_module.httpx, "post", fake_post)
+    client = LLMClient(Settings(llm_base_url="https://example.invalid/v1", llm_api_key="test", llm_model="test-model"))
+
+    rewrite = client.rewrite_query("HoloQuant结果如何？", [], failure_reason="evidence_not_relevant")
+
+    assert rewrite["reason"] == "alternative_vocabulary"
+    prompt = captured["payload"]["messages"][1]["content"]
+    assert "not materially relevant enough" in prompt
+    assert "Do not add names, measurements, source restrictions, or factual claims" in prompt
+
+
 def test_citation_retry_uses_failure_specific_generation_prompt(monkeypatch):
     captured = {}
 
@@ -117,6 +142,8 @@ def test_citation_retry_uses_failure_specific_generation_prompt(monkeypatch):
     system = captured["payload"]["messages"][0]["content"]
     assert "only markers [1] through [2]" in system
     assert "never invent a citation index" in system
+    assert "evidence_status: grounded" in system
+    assert "evidence_status: not_relevant" in system
 
 
 def test_session_title_is_short_and_disables_thinking(monkeypatch):

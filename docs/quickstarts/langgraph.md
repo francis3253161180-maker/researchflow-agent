@@ -128,7 +128,7 @@ flowchart TB
 
 - `plan`：规则路由，不是 LLM planner；
 - `rewrite`：只用同会话最近 3 个、已验证的用户 + 助手 turn 做指代消解；历史回答只作上下文，不作证据，失败时回退原问题；
-- `retrieve`：top-4 混合检索；`no_evidence` 首次失败时以失败原因为约束进行中性扩展 Rewrite 后重新检索；
+- `retrieve`：top-4 混合检索；`no_evidence`，或引用结构通过后出现的 `evidence_not_relevant`，首次失败时以失败原因为约束进行中性扩展 Rewrite 后重新检索；
 - `tool`：安全数学计算；
 - `answer`：读取最近 6 条消息并调用 LLM/fallback；
 - `verify`：区分 RAG 无证据、引用缺失、引用编号越界和编号有效；

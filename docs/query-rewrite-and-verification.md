@@ -32,7 +32,10 @@ sequenceDiagram
 | `no_evidence` | 本次检索没有返回证据块 | 带失败原因 Rewrite 后重新检索一次 | 保留已知实体和意图，只扩展中性检索表述；不添加事实 |
 | `citation_missing` | 有证据块，但答案没有 `[n]` | 用**同一组证据**重新生成一次 | 每个实质性事实主张必须带有效 `[n]`；不得新增无依据主张 |
 | `citation_out_of_range` | `[n]` 超出本轮证据编号范围 | 用**同一组证据**重新生成一次 | 只允许 `[1]` 到 `[N]`；不得虚构编号 |
+| `evidence_not_relevant` | 有候选、引用结构有效，但模型显式判定候选无法实质回答 | 带失败原因 Rewrite 后重新检索一次 | 改用中性的技术/任务/结果词重述信息需求；不得扩充事实或指定来源 |
 | `citation_indices_valid` | 出现的 `[n]` 都指向本轮证据范围 | 通过结构化验证 | — |
+
+Verify 的判断顺序是：**无候选 → 引用缺失 → 引用越界 → 相关性状态 → 通过**。因此模型若既没有引用、又给出 `not_relevant` 标记，系统优先认定为 `citation_missing` 并在同一证据上修复；只有引用结构已经有效、但模型显式判定候选不足以回答时，才认定为 `evidence_not_relevant` 并触发一次扩展 Rewrite/重检索。
 
 ```mermaid
 flowchart TD
@@ -57,12 +60,13 @@ flowchart TD
 
 每个节点事件保存累计耗时 `at_ms`、节点耗时 `duration_ms` 与可读 `detail`；网页展示实际检索 Query、改写原因、验证原因、引用和完整运行轨迹。
 
-当前 `pytest` 共 **55 项**。与本模块直接相关的回归包括：
+当前 `pytest` 共 **59 项**。与本模块直接相关的回归包括：
 
 1. 两轮会话的代词追问：第二轮收到最近的已验证用户 + 助手 turn，并持久化实际 `retrieval_query`、改写和验证原因；
 2. 未通过引用验证的 run 不会进入下一轮 Rewrite 上下文；
 3. `no_evidence` 会携带失败原因进行一次扩展型 Rewrite/检索，即使历史为空也不会跳过该策略；
 4. `citation_missing` 与 `citation_out_of_range` 都只在同一证据上重答一次，并分别把失败原因传给生成提示词；
 5. 直接调用 `LLMClient.rewrite_query` 时，验证历史的用户与助手文本会进入请求，且请求固定 `thinking=disabled`。
+6. `not_relevant` 必须在引用结构合法后才能触发扩展检索；若它与缺少引用同时出现，`citation_missing` 优先。
 
 这些测试证明明确行为具备回归保护，不代表已经测得真实文档集上的代词消解准确率、事实正确率或召回率。

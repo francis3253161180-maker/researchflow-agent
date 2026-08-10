@@ -28,6 +28,7 @@ class AgentState(TypedDict, total=False):
     retrieved: list[dict[str, Any]]
     tool_result: str
     answer: str
+    evidence_status: str
     citations: list[dict[str, Any]]
     verified: bool
     retry_count: int
@@ -93,6 +94,24 @@ def history_as_messages(history: list[dict[str, str]]) -> list[dict[str, str]]:
     return messages
 
 
+EVIDENCE_STATUS_MARKER = re.compile(
+    r"\s*<!--\s*evidence_status\s*:\s*(grounded|not_relevant)\s*-->\s*$", re.IGNORECASE
+)
+
+
+def strip_evidence_status_marker(answer: str) -> tuple[str, str]:
+    """Remove the model-only relevance verdict before storing or rendering it.
+
+    A final marker is an explicit protocol field, not a fragile match against
+    natural-language refusal wording.  A missing marker remains neutral so
+    legacy/offline responders continue through normal citation validation.
+    """
+    match = EVIDENCE_STATUS_MARKER.search(answer)
+    if not match:
+        return answer, "not_reported"
+    return answer[: match.start()].rstrip(), match.group(1).lower()
+
+
 def build_graph(db: Database, retriever: HybridRetriever, llm: LLMClient, retrieval_top_k: int = 6):
     def plan_node(state: AgentState) -> dict[str, Any]:
         started = time.perf_counter()
@@ -133,10 +152,11 @@ def build_graph(db: Database, retriever: HybridRetriever, llm: LLMClient, retrie
         emit_progress("retrieve", "正在进行 BM25 与向量混合检索…")
         query = state.get("retrieval_query", state["query"])
         rewrite_reason = state.get("rewrite_reason", "")
-        if state.get("retry_count", 0) and state.get("verify_reason") == "no_evidence":
+        retry_reason = state.get("verify_reason")
+        if state.get("retry_count", 0) and retry_reason in {"no_evidence", "evidence_not_relevant"}:
             history = trusted_short_term_history(db, state["session_id"])
             retry_rewrite = (
-                llm.rewrite_query(query, history, failure_reason="no_evidence")
+                llm.rewrite_query(query, history, failure_reason=str(retry_reason))
                 if hasattr(llm, "rewrite_query")
                 else {"retrieval_query": query, "rewritten": False, "reason": "rewriter_unavailable"}
             )
@@ -193,16 +213,18 @@ def build_graph(db: Database, retriever: HybridRetriever, llm: LLMClient, retrie
             errors = state.get("errors", [])
             if error_code not in errors:
                 errors = [*errors, error_code]
+        answer, evidence_status = strip_evidence_status_marker(answer)
         # The prompt numbers every retrieved context. Return the same complete
         # list to clients so a model citation such as [4] never points outside
         # the displayed citation inventory.
         citations = contexts
         return {
             "answer": answer,
+            "evidence_status": evidence_status,
             "citations": citations,
             "errors": errors,
             "thinking_mode": state.get("thinking_mode", "disabled"),
-            "events": event(state, "answer", f"citations={len(citations)}", started),
+            "events": event(state, "answer", f"citations={len(citations)}; evidence_status={evidence_status}", started),
         }
 
     def verify_node(state: AgentState) -> dict[str, Any]:
@@ -218,6 +240,11 @@ def build_graph(db: Database, retriever: HybridRetriever, llm: LLMClient, retrie
                 verified, verify_reason = False, "citation_missing"
             elif any(index < 1 or index > len(citations) for index in indices):
                 verified, verify_reason = False, "citation_out_of_range"
+            elif state.get("evidence_status") == "not_relevant":
+                # A relevance verdict is useful only after the answer has met
+                # basic citation structure.  Otherwise a missing/invalid
+                # citation is a generation repair, not a recall repair.
+                verified, verify_reason = False, "evidence_not_relevant"
             else:
                 verified, verify_reason = True, "citation_indices_valid"
         elif route == "tool":
@@ -266,7 +293,7 @@ def build_graph(db: Database, retriever: HybridRetriever, llm: LLMClient, retrie
 
     def after_verify(state: AgentState) -> str:
         if state["route"] == "rag" and not state["verified"] and state.get("retry_count", 0) == 1:
-            return "retrieve" if state.get("verify_reason") == "no_evidence" else "answer"
+            return "retrieve" if state.get("verify_reason") in {"no_evidence", "evidence_not_relevant"} else "answer"
         return "persist"
 
     graph = StateGraph(AgentState)
@@ -301,6 +328,7 @@ def initial_state(
         "retrieval_query": query,
         "rewrite_reason": "not_started",
         "verify_reason": "not_started",
+        "evidence_status": "not_reported",
         "thinking_mode": thinking_mode,
         "document_ids": document_ids,
         "retry_count": 0,
