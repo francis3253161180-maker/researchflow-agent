@@ -224,6 +224,9 @@ def test_web_ui_exposes_upload_and_citation_surfaces(tmp_path):
         assert "sidebar-resizer" in page.text
         assert "toggleTurn" in page.text
         assert "turn-details" in page.text
+        assert "turn-detail-button" in page.text
+        assert "查看引用与运行轨迹" in page.text
+        assert "sessions-panel" in page.text
         assert "researchflow-sidebar-width" in page.text
         assert ".turn { flex:none;" in page.text
         assert "Shift + Enter" in page.text
