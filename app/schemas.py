@@ -81,6 +81,9 @@ class ChatResponse(BaseModel):
     events: list[dict[str, Any]]
     errors: list[str] = []
     thinking_mode: Literal["enabled", "disabled"]
+    retrieval_query: str
+    rewrite_reason: str
+    verify_reason: str
 
 
 class SessionMessage(BaseModel):
@@ -93,6 +96,9 @@ class RunDetail(BaseModel):
     run_id: str
     session_id: str
     query: str
+    retrieval_query: str = ""
+    rewrite_reason: str = "not_applicable"
+    verify_reason: str = "not_applicable"
     route: str
     answer: str
     verified: bool

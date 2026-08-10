@@ -113,6 +113,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             events=result.get("events", []),
             errors=result.get("errors", []),
             thinking_mode=result.get("thinking_mode", "disabled"),
+            retrieval_query=result.get("retrieval_query", payload.query),
+            rewrite_reason=result.get("rewrite_reason", "not_applicable"),
+            verify_reason=result.get("verify_reason", "not_applicable"),
         )
 
     @app.post("/api/sessions", response_model=SessionSummary)

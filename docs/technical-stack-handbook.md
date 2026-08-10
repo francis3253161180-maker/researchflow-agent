@@ -90,7 +90,7 @@
 
 ```text
 START -> plan
-plan -> retrieve | tool | answer
+plan -> rewrite -> retrieve | tool | answer
 retrieve -> answer
 tool -> answer
 answer -> verify
@@ -315,7 +315,7 @@ score(d) = Σ 1 / (k + rank_i(d))
 
 ### 高频问法
 
-**45项测试说明什么？** 说明当前明确行为有自动回归保护；其中包含会话恢复、per-run thinking mode、MCP 工具与 stdio 协议调用，不说明生产高并发、真实性能或全部边界已覆盖。
+**49项测试说明什么？** 说明当前明确行为有自动回归保护；其中包含会话恢复、per-run thinking mode、Query Rewrite、结构化引用重试、MCP 工具与 stdio 协议调用，不说明生产高并发、真实性能或全部边界已覆盖。
 
 **8/8说明什么？** 说明受控样例的检索、答案、引用和校验链路跑通；不代表企业准确率。
 

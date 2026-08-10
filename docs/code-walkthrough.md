@@ -87,11 +87,11 @@ class ChatRequest(BaseModel):
 
 优点：确定、便于测试、不会让模型任意调用本地工具。局限：自然语言数学题和更复杂意图可能误判，未来需要分类器或受控的结构化模型路由。
 
-## 6. retrieve 节点
+## 6. rewrite 与 retrieve 节点
 
-首次使用原问题检索；若已经失败一次，则追加“方法 结果 结论”扩展查询。`HybridRetriever.search` 返回由 `RETRIEVAL_TOP_K` 控制的候选证据（默认 6 条）。
+RAG 路径先执行 `rewrite_node`：它只取同一会话此前的用户问题，调用模型生成不引入新事实的 standalone Query；没有历史、离线模式或模型格式异常时安全回退原 Query。`HybridRetriever.search` 使用 `retrieval_query` 返回由 `RETRIEVAL_TOP_K` 控制的候选证据（默认 6 条）。若首轮 `no_evidence`，会携带该失败原因重新改写并检索一次。
 
-注意：这只是固定扩展，不是完整 Query Rewrite 模型。面试时应准确描述为“有限的规则式查询扩展”。
+这不是基于文档标题、章节或问题映射表的硬编码。改写输出、原因和实际检索 Query 会写进 run，便于检查其是否真的生效。
 
 ## 7. tool 节点
 
@@ -121,18 +121,18 @@ class ChatRequest(BaseModel):
 
 | route | 当前标准 |
 | --- | --- |
-| `rag` | 有 citations，且回答包含至少一个与引用编号对应的 `[n]` |
+| `rag` | `no_evidence`、`citation_missing`、`citation_out_of_range` 或 `citation_indices_valid` 四种结构化结论 |
 | `tool` | `tool_result` 非空 |
 | `direct` | answer 非空 |
 
-重要边界：当前 RAG 校验只证明“有证据和引用标记”，没有逐句判断答案是否被证据支持，也没有检测错误引用。
+重要边界：当前 RAG 校验会检测没有证据、没有 `[n]` 和 `[n]` 编号越界；但它仍没有逐句判断答案是否被证据支持，也不能判断编号有效的引用是否真正支持某个主张。
 
 ## 10. 条件重试
 
 若 RAG 未通过校验：
 
-1. `verify_node` 增加 `retry_count`；
-2. 第一次失败时回到 `retrieve`；
+1. `verify_node` 增加 `retry_count` 并给出失败类型；
+2. `no_evidence` 首次失败回到 `retrieve`，引用缺失/越界首次失败回到 `answer`；
 3. 第二次验证后无论成功与否都进入 `persist`。
 
 业务规则限制一次重试；`recursion_limit=12` 是框架层兜底，二者不要混为一谈。
@@ -142,7 +142,7 @@ class ChatRequest(BaseModel):
 持久化内容包括：
 
 - 用户与助手消息；
-- route、answer、verified；
+- route、原始/实际检索 Query、改写原因、answer、verified、验证原因；
 - 总延迟；
 - 全部节点事件；
 - 脱敏错误类型。

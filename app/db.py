@@ -85,6 +85,9 @@ class Database:
                     errors TEXT NOT NULL DEFAULT '[]',
                     citations TEXT NOT NULL DEFAULT '[]',
                     thinking_mode TEXT NOT NULL DEFAULT 'disabled',
+                    retrieval_query TEXT NOT NULL DEFAULT '',
+                    rewrite_reason TEXT NOT NULL DEFAULT 'not_applicable',
+                    verify_reason TEXT NOT NULL DEFAULT 'not_applicable',
                     created_at TEXT NOT NULL
                 );
                 CREATE INDEX IF NOT EXISTS idx_runs_session_created ON runs(session_id, created_at);
@@ -97,6 +100,9 @@ class Database:
             self._ensure_column(conn, "runs", "errors", "TEXT NOT NULL DEFAULT '[]'")
             self._ensure_column(conn, "runs", "citations", "TEXT NOT NULL DEFAULT '[]'")
             self._ensure_column(conn, "runs", "thinking_mode", "TEXT NOT NULL DEFAULT 'disabled'")
+            self._ensure_column(conn, "runs", "retrieval_query", "TEXT NOT NULL DEFAULT ''")
+            self._ensure_column(conn, "runs", "rewrite_reason", "TEXT NOT NULL DEFAULT 'not_applicable'")
+            self._ensure_column(conn, "runs", "verify_reason", "TEXT NOT NULL DEFAULT 'not_applicable'")
             conn.execute(
                 """
                 INSERT OR IGNORE INTO sessions(id, title, created_at, updated_at)
@@ -329,13 +335,16 @@ class Database:
             )
             conn.execute(
                 """
-                INSERT INTO runs(run_id, session_id, query, route, answer, verified, latency_ms, events, errors, citations, thinking_mode, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO runs(run_id, session_id, query, retrieval_query, rewrite_reason, verify_reason, route, answer, verified, latency_ms, events, errors, citations, thinking_mode, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     run["run_id"],
                     run["session_id"],
                     run["query"],
+                    run.get("retrieval_query", run["query"]),
+                    run.get("rewrite_reason", "not_applicable"),
+                    run.get("verify_reason", "not_applicable"),
                     run["route"],
                     run["answer"],
                     int(run["verified"]),

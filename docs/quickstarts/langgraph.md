@@ -103,6 +103,7 @@ ResearchFlow 没有为 `events` 声明 reducer，因此每个节点显式返回�
 flowchart TB
     START([START])
     PLAN[plan]
+    REWRITE[rewrite]
     RETRIEVE[retrieve]
     TOOL[tool]
     ANSWER[answer]
@@ -111,13 +112,14 @@ flowchart TB
     ENDNODE([END])
 
     START --> PLAN
-    PLAN -->|knowledge query and corpus exists| RETRIEVE
+    PLAN -->|knowledge query and corpus exists| REWRITE --> RETRIEVE
     PLAN -->|math expression| TOOL
     PLAN -->|empty corpus| ANSWER
     RETRIEVE --> ANSWER
     TOOL --> ANSWER
     ANSWER --> VERIFY
-    VERIFY -->|RAG citation missing and retry count is one| RETRIEVE
+    VERIFY -->|no evidence and first failure| REWRITE
+    VERIFY -->|citation missing/out of range and first failure| ANSWER
     VERIFY -->|verified or stop| PERSIST
     PERSIST --> ENDNODE
 ```
@@ -125,10 +127,11 @@ flowchart TB
 各节点职责：
 
 - `plan`：规则路由，不是 LLM planner；
-- `retrieve`：top-4 混合检索，重试时扩展 query；
+- `rewrite`：只用同会话此前用户问题生成 standalone retrieval query；失败时回退原问题；
+- `retrieve`：top-4 混合检索；`no_evidence` 首次失败时通过 rewrite 后重新检索；
 - `tool`：安全数学计算；
 - `answer`：读取最近 6 条消息并调用 LLM/fallback；
-- `verify`：检查 RAG 引用标记、工具结果或直接回答是否存在；
+- `verify`：区分 RAG 无证据、引用缺失、引用编号越界和编号有效；
 - `persist`：保存消息、route、事件、错误类型和耗时。
 
 ## 6. 条件边、循环与两层上限
@@ -137,7 +140,7 @@ flowchart TB
 
 ResearchFlow 有两层保护：
 
-1. **业务上限**：RAG 引用不合格时只扩展 query 重试一次；
+1. **业务上限**：RAG 无证据时只重写/检索一次；引用不合格时只在同一证据上重答一次；
 2. **运行时上限**：调用图时设置 `recursion_limit=12`，防止图拓扑或条件错误造成无界执行。
 
 两者不能互相替代：业务上限表达产品规则；recursion limit 是最后一道运行安全保护。

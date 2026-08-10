@@ -102,19 +102,22 @@ flowchart TB
 ```mermaid
 flowchart TB
     PLAN[Plan and route]
+    REWRITE[Query rewrite]
     RAG[Retrieve]
     TOOL[Safe tool]
     DIRECT[Direct constrained answer]
     ANSWER[Answer]
     VERIFY[Verify]
-    RETRY[Expand query once]
+    RETRY_RETRIEVE[Rewrite and retrieve once]
+    RETRY_ANSWER[Same-evidence answer once]
     PERSIST[Persist messages and trace]
 
-    PLAN -->|knowledge| RAG --> ANSWER
+    PLAN -->|knowledge| REWRITE --> RAG --> ANSWER
     PLAN -->|math| TOOL --> ANSWER
     PLAN -->|empty corpus| DIRECT --> ANSWER
     ANSWER --> VERIFY
-    VERIFY -->|missing citation and first failure| RETRY --> RAG
+    VERIFY -->|no evidence and first failure| RETRY_RETRIEVE --> REWRITE
+    VERIFY -->|citation issue and first failure| RETRY_ANSWER --> ANSWER
     VERIFY -->|verified or stop| PERSIST
 ```
 

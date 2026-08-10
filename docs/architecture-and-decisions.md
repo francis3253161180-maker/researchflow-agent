@@ -40,6 +40,7 @@ sequenceDiagram
     A->>G: create run + initial state
     G->>G: plan and route
     alt 知识型问题且语料非空
+        G->>G: session-aware query rewrite
         G->>R: BM25 + vector + RRF
         R-->>G: chunks with source metadata
     else 数学表达式
@@ -51,8 +52,12 @@ sequenceDiagram
     G->>L: answer with evidence context
     L-->>G: draft answer
     G->>G: validate citation / evidence
-    opt RAG evidence invalid and retry_count = 0
-        G->>R: expand query and retry once
+    opt no evidence and retry_count = 0
+        G->>G: rewrite with failure reason
+        G->>R: retrieve once
+    end
+    opt citation missing/out of range and retry_count = 0
+        G->>L: re-answer from the same evidence once
     end
     G->>D: persist session, turn, messages, citations, events, errors, latency
     D-->>A: run id and trace
@@ -103,7 +108,7 @@ V1 的词法检索与向量检索各有价值：前者对专业术语、文件�
 
 ## 6. 已验证的内容与验证边界
 
-- `pytest` 覆盖 45 项单元、API 与 MCP 端到端测试，包括上传/删除、页码元数据、引用校验、会话/turn 恢复、per-run thinking mode、异常脱敏、轨迹持久化以及 stdio 工具发现/调用。
+- `pytest` 覆盖 49 项单元、API 与 MCP 端到端测试，包括上传/删除、页码元数据、结构化引用校验、会话/turn 恢复、per-run thinking mode、会话感知 Query Rewrite、异常脱敏、轨迹持久化以及 stdio 工具发现/调用。
 - `scripts/run_eval.py` 有 8 条受控回归样例，并已在 hash 和 FastEmbed 两种后端下跑通检索命中、引用生成与校验。
 - GitHub Actions 在 push/PR 时执行测试和 Docker 镜像构建。
 

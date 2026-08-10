@@ -17,6 +17,9 @@ class AgentState(TypedDict, total=False):
     run_id: str
     session_id: str
     query: str
+    retrieval_query: str
+    rewrite_reason: str
+    verify_reason: str
     thinking_mode: str
     document_ids: list[str] | None
     route: str
@@ -33,12 +36,16 @@ class AgentState(TypedDict, total=False):
     errors: list[str]
 
 
-def event(state: AgentState, node: str, detail: str) -> list[dict[str, Any]]:
-    return [*state.get("events", []), {"node": node, "detail": detail, "at_ms": round((time.perf_counter() - state["started_at"]) * 1000, 2)}]
+def event(state: AgentState, node: str, detail: str, started_at: float | None = None) -> list[dict[str, Any]]:
+    item = {"node": node, "detail": detail, "at_ms": round((time.perf_counter() - state["started_at"]) * 1000, 2)}
+    if started_at is not None:
+        item["duration_ms"] = round((time.perf_counter() - started_at) * 1000, 2)
+    return [*state.get("events", []), item]
 
 
 def build_graph(db: Database, retriever: HybridRetriever, llm: LLMClient, retrieval_top_k: int = 6):
     def plan_node(state: AgentState) -> dict[str, Any]:
+        started = time.perf_counter()
         query = state["query"].strip()
         has_math = bool(re.search(r"\d\s*[-+*/%]\s*\d", query))
         route = "tool" if has_math else ("rag" if db.chunk_count() else "direct")
@@ -54,13 +61,34 @@ def build_graph(db: Database, retriever: HybridRetriever, llm: LLMClient, retrie
             "plan": plans[route],
             "document_ids": document_ids,
             "scope_mode": scope_mode,
-            "events": event(state, "plan", f"route={route}; scope={scope_mode}"),
+            "events": event(state, "plan", f"route={route}; scope={scope_mode}", started),
         }
 
+    def rewrite_node(state: AgentState) -> dict[str, Any]:
+        started = time.perf_counter()
+        prior_questions = [item["content"] for item in db.get_messages(state["session_id"], limit=12) if item["role"] == "user"]
+        rewrite = (
+            llm.rewrite_query(state["query"], prior_questions)
+            if hasattr(llm, "rewrite_query")
+            else {"retrieval_query": state["query"], "rewritten": False, "reason": "rewriter_unavailable"}
+        )
+        retrieval_query = str(rewrite["retrieval_query"])
+        detail = f"rewritten={rewrite['rewritten']}; reason={rewrite['reason']}"
+        return {"retrieval_query": retrieval_query, "rewrite_reason": str(rewrite["reason"]), "events": event(state, "rewrite", detail, started)}
+
     def retrieve_node(state: AgentState) -> dict[str, Any]:
-        query = state["query"]
-        if state.get("retry_count", 0):
-            query = f"{query} 方法 结果 结论"
+        started = time.perf_counter()
+        query = state.get("retrieval_query", state["query"])
+        rewrite_reason = state.get("rewrite_reason", "")
+        if state.get("retry_count", 0) and state.get("verify_reason") == "no_evidence":
+            prior_questions = [item["content"] for item in db.get_messages(state["session_id"], limit=12) if item["role"] == "user"]
+            retry_rewrite = (
+                llm.rewrite_query(query, prior_questions, failure_reason="no_evidence")
+                if hasattr(llm, "rewrite_query")
+                else {"retrieval_query": query, "rewritten": False, "reason": "rewriter_unavailable"}
+            )
+            query = str(retry_rewrite["retrieval_query"])
+            rewrite_reason = f"retry:{retry_rewrite['reason']}"
         document_ids = state.get("document_ids")
         results = [
             item.as_dict()
@@ -73,25 +101,28 @@ def build_graph(db: Database, retriever: HybridRetriever, llm: LLMClient, retrie
         scope = state.get("scope_mode", "all_documents")
         if document_ids is not None:
             scope = f"{scope}; documents={len(document_ids)}"
-        return {"retrieved": results, "events": event(state, "retrieve", f"hits={len(results)}; scope={scope}")}
+        return {"retrieved": results, "retrieval_query": query, "rewrite_reason": rewrite_reason, "events": event(state, "retrieve", f"hits={len(results)}; scope={scope}", started)}
 
     def tool_node(state: AgentState) -> dict[str, Any]:
+        started = time.perf_counter()
         try:
             result = calculate(state["query"])
             errors = state.get("errors", [])
         except Exception as exc:  # surfaced to the graph instead of crashing the request
             result = ""
             errors = [*state.get("errors", []), str(exc)]
-        return {"tool_result": result, "errors": errors, "events": event(state, "tool", result or "tool_error")}
+        return {"tool_result": result, "errors": errors, "events": event(state, "tool", result or "tool_error", started)}
 
     def answer_node(state: AgentState) -> dict[str, Any]:
+        started = time.perf_counter()
         # A source-scoped request must not inherit factual claims from an
         # earlier answer produced over a different document set.
         memory = [] if state.get("document_ids") is not None else db.get_messages(state["session_id"], limit=6)
         contexts = state.get("retrieved", [])
         try:
             answer = llm.generate(
-                state["query"], contexts, memory, state.get("tool_result", ""), state.get("thinking_mode")
+                state["query"], contexts, memory, state.get("tool_result", ""), state.get("thinking_mode"),
+                citation_retry=state.get("retry_count", 0) > 0 and state.get("verify_reason") in {"citation_missing", "citation_out_of_range"},
             )
             errors = state.get("errors", [])
         except Exception as exc:
@@ -115,39 +146,50 @@ def build_graph(db: Database, retriever: HybridRetriever, llm: LLMClient, retrie
             "citations": citations,
             "errors": errors,
             "thinking_mode": state.get("thinking_mode", "disabled"),
-            "events": event(state, "answer", f"citations={len(citations)}"),
+            "events": event(state, "answer", f"citations={len(citations)}", started),
         }
 
     def verify_node(state: AgentState) -> dict[str, Any]:
+        started = time.perf_counter()
         route = state["route"]
         if route == "rag":
-            verified = bool(state.get("citations")) and any(
-                f"[{index}]" in state.get("answer", "")
-                for index in range(1, len(state.get("citations", [])) + 1)
-            )
+            citations = state.get("citations", [])
+            indices = [int(index) for index in re.findall(r"\[(\d+)\]", state.get("answer", ""))]
+            if not citations:
+                verified, verify_reason = False, "no_evidence"
+            elif not indices:
+                verified, verify_reason = False, "citation_missing"
+            elif any(index < 1 or index > len(citations) for index in indices):
+                verified, verify_reason = False, "citation_out_of_range"
+            else:
+                verified, verify_reason = True, "citation_indices_valid"
         elif route == "tool":
-            verified = bool(state.get("tool_result"))
+            verified, verify_reason = bool(state.get("tool_result")), "tool_result_present"
         else:
-            verified = bool(state.get("answer"))
+            verified, verify_reason = bool(state.get("answer")), "direct_answer_present"
         retry_count = state.get("retry_count", 0)
         if not verified and route == "rag":
             retry_count += 1
         return {
             "verified": verified,
             "retry_count": retry_count,
-            "events": event(state, "verify", f"verified={verified}; retries={retry_count}"),
+            "verify_reason": verify_reason,
+            "events": event(state, "verify", f"verified={verified}; reason={verify_reason}; retries={retry_count}", started),
         }
 
     def persist_node(state: AgentState) -> dict[str, Any]:
         latency_ms = round((time.perf_counter() - state["started_at"]) * 1000, 2)
         db.add_message(state["session_id"], "user", state["query"])
         db.add_message(state["session_id"], "assistant", state["answer"])
-        events = event(state, "persist", f"latency_ms={latency_ms}")
+        persist_started = time.perf_counter()
+        events = event(state, "persist", f"latency_ms={latency_ms}", persist_started)
         db.save_run(
             {
                 "run_id": state["run_id"],
                 "session_id": state["session_id"],
                 "query": state["query"],
+                "retrieval_query": state.get("retrieval_query", state["query"]),
+                "rewrite_reason": state.get("rewrite_reason", "not_applicable"),
                 "route": state["route"],
                 "answer": state["answer"],
                 "verified": state["verified"],
@@ -156,31 +198,34 @@ def build_graph(db: Database, retriever: HybridRetriever, llm: LLMClient, retrie
                 "errors": state.get("errors", []),
                 "citations": state.get("citations", []),
                 "thinking_mode": state.get("thinking_mode", "disabled"),
+                "verify_reason": state.get("verify_reason", "not_applicable"),
             }
         )
         return {"latency_ms": latency_ms, "events": events}
 
     def after_plan(state: AgentState) -> str:
-        return {"rag": "retrieve", "tool": "tool", "direct": "answer"}[state["route"]]
+        return {"rag": "rewrite", "tool": "tool", "direct": "answer"}[state["route"]]
 
     def after_verify(state: AgentState) -> str:
         if state["route"] == "rag" and not state["verified"] and state.get("retry_count", 0) == 1:
-            return "retrieve"
+            return "retrieve" if state.get("verify_reason") == "no_evidence" else "answer"
         return "persist"
 
     graph = StateGraph(AgentState)
     graph.add_node("plan", plan_node)
+    graph.add_node("rewrite", rewrite_node)
     graph.add_node("retrieve", retrieve_node)
     graph.add_node("tool", tool_node)
     graph.add_node("answer", answer_node)
     graph.add_node("verify", verify_node)
     graph.add_node("persist", persist_node)
     graph.add_edge(START, "plan")
-    graph.add_conditional_edges("plan", after_plan, {"retrieve": "retrieve", "tool": "tool", "answer": "answer"})
+    graph.add_conditional_edges("plan", after_plan, {"rewrite": "rewrite", "tool": "tool", "answer": "answer"})
+    graph.add_edge("rewrite", "retrieve")
     graph.add_edge("retrieve", "answer")
     graph.add_edge("tool", "answer")
     graph.add_edge("answer", "verify")
-    graph.add_conditional_edges("verify", after_verify, {"retrieve": "retrieve", "persist": "persist"})
+    graph.add_conditional_edges("verify", after_verify, {"retrieve": "retrieve", "answer": "answer", "persist": "persist"})
     graph.add_edge("persist", END)
     return graph.compile()
 
@@ -195,6 +240,9 @@ def initial_state(
         "run_id": f"run_{uuid4().hex[:12]}",
         "session_id": session_id,
         "query": query,
+        "retrieval_query": query,
+        "rewrite_reason": "not_started",
+        "verify_reason": "not_started",
         "thinking_mode": thinking_mode,
         "document_ids": document_ids,
         "retry_count": 0,

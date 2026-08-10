@@ -32,7 +32,7 @@ def test_calculator_tool_route(tmp_path):
 
 def test_missing_citations_retry_exactly_once(tmp_path):
     class NoCitationLLM:
-        def generate(self, query, contexts, memory, tool_result="", thinking_mode=None):
+        def generate(self, query, contexts, memory, tool_result="", thinking_mode=None, citation_retry=False):
             return "模型没有按照要求输出引用。"
 
     db = Database(str(tmp_path / "retry.db"))
@@ -41,14 +41,110 @@ def test_missing_citations_retry_exactly_once(tmp_path):
     graph = build_graph(db, retriever, NoCitationLLM())
     result = graph.invoke(initial_state("session_retry", "何时执行重试？"), {"recursion_limit": 12})
     retrieve_events = [item for item in result["events"] if item["node"] == "retrieve"]
-    assert len(retrieve_events) == 2
+    answer_events = [item for item in result["events"] if item["node"] == "answer"]
+    # A bad citation is repaired from the same evidence; it does not trigger
+    # an unnecessary second retrieval.
+    assert len(retrieve_events) == 1
+    assert len(answer_events) == 2
     assert result["retry_count"] == 2
     assert result["verified"] is False
 
 
+def test_follow_up_uses_rewritten_retrieval_query_and_persists_trace(tmp_path):
+    class FollowUpLLM:
+        def rewrite_query(self, query, prior_user_queries, failure_reason=""):
+            if query == "它在 GSM8K 上表现如何？":
+                assert prior_user_queries == ["介绍 HoloQuant 的量化方法"]
+                return {
+                    "retrieval_query": "HoloQuant 在 GSM8K 上表现如何？",
+                    "rewritten": True,
+                    "reason": "resolved_explicit_prior_entity",
+                }
+            return {"retrieval_query": query, "rewritten": False, "reason": "already_standalone"}
+
+        def generate(self, query, contexts, memory, tool_result="", thinking_mode=None, citation_retry=False):
+            return "HoloQuant 的 GSM8K 结果来自实验表。[1]"
+
+    db = Database(str(tmp_path / "rewrite.db"))
+    retriever = HybridRetriever(db, HashEmbedding())
+    retriever.ingest("HoloQuant 实验", "unit-test", "HoloQuant 在 GSM8K 上的实验结果记录在表 2 中。")
+    graph = build_graph(db, retriever, FollowUpLLM())
+
+    graph.invoke(initial_state("rewrite_session", "介绍 HoloQuant 的量化方法"), {"recursion_limit": 12})
+    result = graph.invoke(initial_state("rewrite_session", "它在 GSM8K 上表现如何？"), {"recursion_limit": 12})
+    persisted = db.get_run(result["run_id"])
+
+    assert result["retrieval_query"] == "HoloQuant 在 GSM8K 上表现如何？"
+    assert result["rewrite_reason"] == "resolved_explicit_prior_entity"
+    assert result["verify_reason"] == "citation_indices_valid"
+    assert persisted is not None
+    assert persisted["retrieval_query"] == result["retrieval_query"]
+    assert persisted["rewrite_reason"] == result["rewrite_reason"]
+    assert persisted["verify_reason"] == result["verify_reason"]
+    assert any(item["node"] == "rewrite" for item in result["events"])
+    assert all("duration_ms" in item for item in result["events"])
+
+
+def test_invalid_citation_reanswers_against_same_evidence_once(tmp_path):
+    class RepairingLLM:
+        def __init__(self):
+            self.citation_retry_flags = []
+
+        def generate(self, query, contexts, memory, tool_result="", thinking_mode=None, citation_retry=False):
+            self.citation_retry_flags.append(citation_retry)
+            return "有证据支持该结论。[1]" if citation_retry else "有证据支持该结论。[99]"
+
+    db = Database(str(tmp_path / "citation-repair.db"))
+    retriever = HybridRetriever(db, HashEmbedding())
+    retriever.ingest("证据", "unit-test", "该文档提供了可引用的事实证据。")
+    llm = RepairingLLM()
+    result = build_graph(db, retriever, llm).invoke(initial_state("citation_session", "有哪些证据？"), {"recursion_limit": 12})
+
+    assert result["verified"] is True
+    assert result["verify_reason"] == "citation_indices_valid"
+    assert result["retry_count"] == 1
+    assert llm.citation_retry_flags == [False, True]
+    assert len([item for item in result["events"] if item["node"] == "retrieve"]) == 1
+    assert len([item for item in result["events"] if item["node"] == "answer"]) == 2
+
+
+def test_no_evidence_rewrites_and_retrieves_once_before_stopping(tmp_path):
+    class NoEvidenceLLM:
+        def __init__(self):
+            self.rewrite_failures = []
+
+        def rewrite_query(self, query, prior_user_queries, failure_reason=""):
+            self.rewrite_failures.append(failure_reason)
+            return {
+                "retrieval_query": query + (" evidence" if failure_reason else ""),
+                "rewritten": bool(failure_reason),
+                "reason": "retry_expand_search_wording" if failure_reason else "already_standalone",
+            }
+
+        def generate(self, query, contexts, memory, tool_result="", thinking_mode=None, citation_retry=False):
+            return "没有可引用的证据。"
+
+    db = Database(str(tmp_path / "no-evidence.db"))
+    retriever = HybridRetriever(db, HashEmbedding())
+    retriever.ingest("隐藏证据", "unit-test", "该块不在本轮显式检索范围内。")
+    llm = NoEvidenceLLM()
+    # An explicitly empty evidence boundary produces a real RAG route with no
+    # candidates, rather than using the unrelated empty-corpus direct route.
+    result = build_graph(db, retriever, llm).invoke(
+        initial_state("no_evidence_session", "有哪些证据？", document_ids=[]), {"recursion_limit": 12}
+    )
+
+    assert result["verified"] is False
+    assert result["verify_reason"] == "no_evidence"
+    assert result["retry_count"] == 2
+    assert llm.rewrite_failures == ["", "no_evidence"]
+    assert result["retrieval_query"].endswith(" evidence")
+    assert len([item for item in result["events"] if item["node"] == "retrieve"]) == 2
+
+
 def test_model_failure_is_sanitized_and_persisted_in_run_trace(tmp_path):
     class FailingLLM:
-        def generate(self, query, contexts, memory, tool_result="", thinking_mode=None):
+        def generate(self, query, contexts, memory, tool_result="", thinking_mode=None, citation_retry=False):
             raise RuntimeError("provider returned internal request details")
 
     db = Database(str(tmp_path / "failure.db"))
@@ -66,7 +162,7 @@ def test_model_failure_is_sanitized_and_persisted_in_run_trace(tmp_path):
 
 def test_empty_model_response_is_sanitized_instead_of_rendered_as_blank(tmp_path):
     class EmptyLLM:
-        def generate(self, query, contexts, memory, tool_result="", thinking_mode=None):
+        def generate(self, query, contexts, memory, tool_result="", thinking_mode=None, citation_retry=False):
             raise RuntimeError("LLM returned an empty final response")
 
     db = Database(str(tmp_path / "empty-response.db"))
@@ -82,7 +178,7 @@ def test_empty_model_response_is_sanitized_instead_of_rendered_as_blank(tmp_path
 
 def test_model_connection_error_is_explained_to_the_user(tmp_path):
     class UnreachableLLM:
-        def generate(self, query, contexts, memory, tool_result="", thinking_mode=None):
+        def generate(self, query, contexts, memory, tool_result="", thinking_mode=None, citation_retry=False):
             raise LLMConnectionError("connection failed")
 
     db = Database(str(tmp_path / "connection-error.db"))

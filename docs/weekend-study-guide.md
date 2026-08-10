@@ -27,7 +27,7 @@
 
 周日结束前，应当能够做到：
 
-- 不看稿画出 `plan -> retrieve/tool/direct -> answer -> verify -> persist`；
+- 不看稿画出 `plan -> rewrite -> retrieve/tool/direct -> answer -> verify -> persist`；
 - 指出一次请求在 `main.py`、`service.py`、`graph.py`、`retrieval.py`、`llm.py`、`db.py` 中如何流动；
 - 解释 BM25、向量检索和 RRF 各自解决什么问题；
 - 独立跑通上传、问答、引用、运行轨迹、测试和回归评测；
@@ -165,7 +165,7 @@ git diff
 
 ### 90 秒版本
 
-> 普通 RAG demo 往往只能生成回答，缺少证据追溯、失败定位和可重复验证。我把系统拆成文档解析、混合检索、Agent 状态流、受限回答、引用校验和运行轨迹。FastAPI 负责服务边界；LangGraph 负责 `plan -> retrieve/tool -> answer -> verify -> persist`，引用标记缺失时只扩展查询重试一次。PDF 保留页码，Markdown 保留分节；BM25 和向量结果通过 RRF 融合。SQLite 保存会话、逐轮 citations 和节点事件，网页可恢复同一会话的全部 runs，并可为单轮选择 DeepSeek 快速回答或深度思考。项目还有独立 MCP Server，向外部 Host 提供检索、引用回查和计算。当前有 45 项测试和 8 条受控回归样例；这些证明链路可回归，但不代表真实业务准确率。
+> 普通 RAG demo 往往只能生成回答，缺少证据追溯、失败定位和可重复验证。我把系统拆成文档解析、混合检索、Agent 状态流、受限回答、Query Rewrite、结构化引用校验和运行轨迹。FastAPI 负责服务边界；LangGraph 负责 `plan -> rewrite -> retrieve/tool -> answer -> verify -> persist`：无证据时仅重写/重检索一次，引用缺失或越界时只在同一证据上重答一次。PDF 保留页码，Markdown 保留分节；BM25 和向量结果通过 RRF 融合。SQLite 保存会话、逐轮 citations 和节点事件，网页可恢复同一会话的全部 runs，并可为单轮选择 DeepSeek 快速回答或深度思考。项目还有独立 MCP Server，向外部 Host 提供检索、引用回查和计算。当前有 49 项测试和 8 条受控回归样例；这些证明链路可回归，但不代表真实业务准确率。
 
 ### 5 分钟版本结构
 

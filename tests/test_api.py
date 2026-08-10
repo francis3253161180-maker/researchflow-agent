@@ -34,11 +34,14 @@ def test_end_to_end_api(tmp_path):
         assert payload["verified"] is True
         assert payload["citations"]
         assert payload["thinking_mode"] == "disabled"
+        assert payload["retrieval_query"] == "LangGraph 如何组织工作流？"
+        assert payload["verify_reason"] == "citation_indices_valid"
 
         run = client.get(f"/api/runs/{payload['run_id']}")
         assert run.status_code == 200
         assert run.json()["route"] == "rag"
         assert run.json()["citations"] == payload["citations"]
+        assert run.json()["retrieval_query"] == payload["retrieval_query"]
 
 
 def test_sessions_restore_turns_and_per_run_thinking_mode(tmp_path):
@@ -208,6 +211,10 @@ def test_web_ui_exposes_upload_and_citation_surfaces(tmp_path):
         assert "newSession" in page.text
         assert "/api/sessions/${activeSessionId}/turns" in page.text
         assert "thinking-mode" in page.text
+        assert "retrieval_query" in page.text
+        assert "rewrite_reason" in page.text
+        assert "verify_reason" in page.text
+        assert "节点耗时" in page.text
         assert "快速回答" in page.text
         assert "深度思考" in page.text
         assert "page-aware citations" not in page.text  # UI stays Chinese-facing
