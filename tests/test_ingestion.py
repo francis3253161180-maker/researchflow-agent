@@ -1,6 +1,7 @@
 from io import BytesIO
 
 from docx import Document
+import pymupdf
 from openpyxl import Workbook
 
 from app.ingestion import _normalize, parse_upload
@@ -41,7 +42,7 @@ def test_markdown_parser_preserves_sections():
         b"# Method\n\nThe method uses hybrid retrieval.\n\n## Evaluation\n\nThe evaluation checks grounded citations.",
     )
     assert parsed.title == "note"
-    assert [block.section for block in parsed.blocks] == ["Method", "Evaluation"]
+    assert [block.section for block in parsed.blocks] == ["Method", "Method › Evaluation"]
 
 
 def test_normalize_replaces_lone_unicode_surrogates():
@@ -58,6 +59,7 @@ def test_docx_parser_extracts_paragraphs():
     parsed = parse_upload("paper-notes.docx", buffer.getvalue())
     assert parsed.filename == "paper-notes.docx"
     assert "experimental configuration" in parsed.content
+    assert parsed.blocks[0].section == "Paper Notes"
 
 
 def test_docx_parser_extracts_table_cells():
@@ -71,6 +73,27 @@ def test_docx_parser_extracts_table_cells():
     parsed = parse_upload("resume.docx", buffer.getvalue())
 
     assert "ResearchFlow Agent" in parsed.content
+
+
+def test_docx_parser_preserves_multilevel_heading_path_and_table_order():
+    document = Document()
+    document.add_heading("3 Experiments", level=1)
+    document.add_heading("3.1 Setup", level=2)
+    document.add_paragraph("The setup paragraph belongs to the setup section.")
+    table = document.add_table(rows=1, cols=2)
+    table.cell(0, 0).text = "Batch size"
+    table.cell(0, 1).text = "8"
+    document.add_heading("3.2 Results", level=2)
+    document.add_paragraph("The result paragraph belongs to the result section.")
+    buffer = BytesIO()
+    document.save(buffer)
+
+    parsed = parse_upload("structured.docx", buffer.getvalue())
+    by_text = {block.content: block.section for block in parsed.blocks}
+
+    assert by_text["The setup paragraph belongs to the setup section."] == "3 Experiments › 3.1 Setup"
+    assert by_text["Batch size | 8"] == "3 Experiments › 3.1 Setup"
+    assert by_text["The result paragraph belongs to the result section."] == "3 Experiments › 3.2 Results"
 
 
 def test_xlsx_parser_keeps_sheet_and_row_range_for_citations():
@@ -97,6 +120,30 @@ def test_pdf_parser_preserves_page_number_and_text():
     assert parsed.filename == "paper.pdf"
     assert parsed.blocks[0].page == 1
     assert "ResearchFlow PDF parser regression" in parsed.content
+
+
+def test_pdf_parser_preserves_section_path_across_pages():
+    document = pymupdf.open()
+    page_one = document.new_page()
+    page_one.insert_text((72, 72), "1 Method", fontsize=18, fontname="hebo")
+    page_one.insert_text((72, 110), "Method page one discusses calibration details.", fontsize=10)
+    page_two = document.new_page()
+    page_two.insert_text((72, 110), "Method page two continues the calibration discussion.", fontsize=10)
+    page_three = document.new_page()
+    page_three.insert_text((72, 72), "1.1 Results", fontsize=15, fontname="hebo")
+    page_three.insert_text((72, 110), "Results page reports the benchmark outcome.", fontsize=10)
+    payload = document.tobytes()
+    document.close()
+
+    parsed = parse_upload("structured.pdf", payload)
+    by_text = {block.content: block for block in parsed.blocks}
+
+    assert by_text["Method page one discusses calibration details."].page == 1
+    assert by_text["Method page one discusses calibration details."].section == "1 Method"
+    assert by_text["Method page two continues the calibration discussion."].page == 2
+    assert by_text["Method page two continues the calibration discussion."].section == "1 Method"
+    assert by_text["Results page reports the benchmark outcome."].page == 3
+    assert by_text["Results page reports the benchmark outcome."].section == "1 Method › 1.1 Results"
 
 
 def test_settings_loads_local_dotenv_without_overriding_process_env(tmp_path, monkeypatch):

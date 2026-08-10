@@ -13,7 +13,7 @@ flowchart TB
     GRAPH[LangGraph]
     HTTPX[HTTPX]
     MODEL[DeepSeek compatible API]
-    PARSER[pypdf and python-docx]
+    PARSER[PyMuPDF pypdf and python-docx]
     EMBED[FastEmbed and ONNX Runtime]
     DB[Python sqlite3]
     TEST[pytest and TestClient]
@@ -136,12 +136,13 @@ flowchart TB
 
 项目位置：`app/config.py`、`.env.example`。
 
-## 6. pypdf、python-docx 与文档解析
+## 6. PyMuPDF、pypdf、python-docx 与文档解析
 
 它们负责从文件格式中提取可检索文本，不负责 OCR、版面理解或图表语义。
 
-- pypdf：读取 PDF 文本层和页码；扫描 PDF 可能几乎无文本；
-- python-docx：读取段落/表格等 DOCX 结构；复杂布局仍会丢失；
+- PyMuPDF：逐页读取 PDF 文本、字号和字体信息，用保守规则形成可跨页继承的标题栈；
+- pypdf：PyMuPDF 解析异常时的页级文本回退；扫描 PDF 可能几乎无文本；
+- python-docx：按原始段落/表格顺序读取 DOCX Heading 与正文；DOCX 没有可靠原生段落页码，复杂布局仍会丢失；
 - Markdown/TXT：编码、标题层级和空内容需要验证；
 - 解析后必须保留 source、filename、page/section 等引用元数据。
 

@@ -35,7 +35,7 @@ app/main.py -> app/service.py -> app/ingestion.py -> app/retrieval.py -> app/db.
 | P0 | `app/service.py` | 组装数据库、检索器、模型和图；承接应用用例 | 能解释为什么 API、业务编排与基础设施没有全部写在一个文件中。 |
 | P0 | `app/graph.py` | AgentState、节点、条件边、有限重试、运行事件 | 能白板画出完整状态流；能指出业务重试一次和 `recursion_limit=12` 的区别。 |
 | P0 | `app/retrieval.py` | 分块、embedding provider、BM25 风格检索、向量得分、RRF | 能解释精确词匹配与语义匹配的互补性，手算一个简化 RRF，并指出 dot product/余弦归一化边界。 |
-| P0 | `app/ingestion.py` | PDF/DOCX/Markdown/TXT 解析及页码/分节元数据 | 能解释为什么引用可回到 PDF 页码或 Markdown 分节，以及扫描 PDF 的限制。 |
+| P0 | `app/ingestion.py` | PDF/DOCX/Markdown/TXT 解析及页码/多级分节元数据 | 能解释 PDF 跨页标题栈、DOCX Heading/表格继承、扫描 PDF 与 DOCX 原生页码的限制。 |
 | P0 | `app/llm.py` | 离线回答、DeepSeek 调用、受限 Prompt、错误边界 | 能解释无 Key 也可回归、文档为何作为不可信证据，以及模型失败如何降级/记录。 |
 | P0 | `app/db.py` | SQLite schema、事务、WAL、外键、文档/会话/运行轨迹 | 能说清四类表、级联删除、提交/回滚，以及 SQLite 适用和不适用的规模。 |
 | P1 | `app/schemas.py` | API 请求/响应的 Pydantic 模型 | 能解释边界校验、OpenAPI 与内部 dataclass 的差别。 |
@@ -52,7 +52,7 @@ app/main.py -> app/service.py -> app/ingestion.py -> app/retrieval.py -> app/db.
 | P0 | `tests/test_retrieval.py` | 混合检索和分块；理解排序结果为什么命中。 |
 | P0 | `tests/test_mcp_server.py` | MCP Tools / Resource、精确引用回查，以及独立 `stdio` Client/Server 的端到端调用。 |
 | P0 | `tests/test_api.py` | 从 HTTP 到存储的端到端行为、上传/删除、API Key、UI。 |
-| P1 | `tests/test_ingestion.py` | PDF 页码、Markdown 分节、DOCX 和环境变量边界。 |
+| P1 | `tests/test_ingestion.py` | PDF 页码与跨页标题栈、Markdown 多级路径、DOCX Heading/表格与环境变量边界。 |
 | P0 | `scripts/run_eval.py` | 两类评测：8 条受控回归样例验证端到端链路；4 篇论文、16 条标注问题比较词法 / Dense / Hybrid 的文档级 Recall、MRR 与延迟。能说明两者都不是生产准确率。 |
 | P1 | `evals/eval_set.json` | 8 条受控样例的结构与局限；至少亲手新增或修改一条临时样例观察结果。 |
 | P1 | `evals/paper_retrieval_queries.json` | 16 条论文检索问题与目标文档标签；理解为何强术语重合语料中词法检索表现更好。 |

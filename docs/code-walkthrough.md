@@ -163,9 +163,9 @@ UploadFile
   -> documents + chunks transaction
 ```
 
-- PDF：逐页提取，保留 `page`；
-- Markdown：按标题切分，保留 `section`；
-- DOCX：提取普通段落，目前不处理表格、图片和复杂样式；
+- PDF：使用 PyMuPDF 逐页提取，始终保留 `page`，并用保守的字号/粗体/编号规则维护可跨页继承的标题栈；异常文件回退到 pypdf 的页级文本；
+- Markdown：按 `#` 至 `######` 标题栈切分，保留完整 `section` 路径；
+- DOCX：按真实段落/表格顺序提取，继承 Word Heading/标题样式形成的完整 `section` 路径；DOCX 没有可靠原生页码，当前不伪造 page；
 - TXT：作为普通文本块。
 
 ## 13. 检索链路
@@ -199,7 +199,7 @@ SQLite 表：
 
 1. `test_graph.py`：三条路由、一次重试、异常脱敏；
 2. `test_retrieval.py`：混合检索和长文分块；
-3. `test_ingestion.py`：PDF 页码、Markdown 分节、DOCX、环境变量；
+3. `test_ingestion.py`：PDF 页码与跨页标题栈、Markdown 多级分节、DOCX Heading/表格上下文、环境变量；
 4. `test_api.py`：端到端 API、上传/删除、API Key、Web UI。
 
 代码能通过的测试，才是项目当前可以明确承诺的行为。

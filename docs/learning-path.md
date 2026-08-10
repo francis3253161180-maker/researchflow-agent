@@ -53,7 +53,7 @@ question → plan → rewrite → retrieve/tool → answer → verify → SQLite
 
 阅读 `app/ingestion.py` 与 `app/retrieval.py`，并用以下问题自测：
 
-1. 为什么 PDF 要保留页码，而 Markdown 要保留标题层级？
+1. 为什么 PDF 要保留页码与可跨页继承的标题层级，而 DOCX 要优先保留 Heading 路径？
 2. 为什么同时做词法检索和向量检索？它们各自容易漏掉什么？
 3. RRF 解决了什么排序问题？为什么这里不直接手写一个复杂加权公式？
 4. `hash` 和 `fastembed` 后端分别适合什么阶段？
@@ -73,7 +73,7 @@ python scripts/run_eval.py --embedding-provider fastembed
 
 - 为网页添加“查看本次节点轨迹”的折叠面板；或
 - 在 `/api/documents` 列表展示来源和创建时间；或
-- 为 PDF 导入写一项带页码的单元测试；或
+- 为 PDF 跨页标题栈或 DOCX 多级 Heading 导入写一项单元测试；或
 - 改进 `plan_node` 的路由规则，并新增一个回归用例。
 
 改完后依次执行：
@@ -88,7 +88,7 @@ git status
 
 ## 面试的 90 秒版本
 
-> 我做了一个面向科研文档的本地 Agent/RAG 服务。它支持 PDF、DOCX、Markdown、TXT 导入，检索端采用词法检索和向量检索的 RRF 融合，并将 PDF 页码和 Markdown 分节作为引用元数据返回。Agent 用 LangGraph 显式编排计划、可信短期记忆 Query Rewrite、检索/工具、回答、结构化引用校验和持久化；仅用最近已验证的用户 + 助手 turn 解决指代，历史回答不是证据。Verify 固定先检查无候选、再检查候选是否不相关、最后才检查缺引/错引；无候选或候选不相关时最多做一次中性扩展改写并重检索，引用缺失或越界时分别只基于同一证据重答一次，避免无界循环与证据漂移。服务通过 FastAPI 暴露，SQLite 保存会话、逐轮 citations 与运行轨迹；网页通过 SSE 反馈节点级执行状态，并只在校验后提交最终回答。首轮结束后会在模型可用时生成简短会话标题，离线时保留首问标题。同时用独立 MCP Server 向外部 Agent Host 暴露混合检索、精确引用回查和安全计算。项目有 59 项测试、8 条受控回归样例，并在 GitHub Actions 中持续测试和构建 Docker 镜像。
+> 我做了一个面向科研文档的本地 Agent/RAG 服务。它支持 PDF、DOCX、Markdown、TXT 导入，检索端采用词法检索和向量检索的 RRF 融合，并将 PDF 页码与可跨页继承的标题路径、DOCX/Markdown 标题路径作为引用元数据返回；DOCX 没有可靠原生页码，不会伪造。Agent 用 LangGraph 显式编排计划、可信短期记忆 Query Rewrite、检索/工具、回答、结构化引用校验和持久化；仅用最近已验证的用户 + 助手 turn 解决指代，历史回答不是证据。Verify 固定先检查无候选、再检查候选是否不相关、最后才检查缺引/错引；无候选或候选不相关时最多做一次中性扩展改写并重检索，引用缺失或越界时分别只基于同一证据重答一次，避免无界循环与证据漂移。服务通过 FastAPI 暴露，SQLite 保存会话、逐轮 citations 与运行轨迹；网页通过 SSE 反馈节点级执行状态，并只在校验后提交最终回答。首轮结束后会在模型可用时生成简短会话标题，离线时保留首问标题。同时用独立 MCP Server 向外部 Agent Host 暴露混合检索、精确引用回查和安全计算。项目有 61 项测试、8 条受控回归样例，并在 GitHub Actions 中持续测试和构建 Docker 镜像。
 
 接着准备两个追问：
 
@@ -98,7 +98,7 @@ git status
 ## 不应在面试中夸大的内容
 
 - 8/8 是受控项目回归集，不是企业场景准确率；
-- 59 项测试与 CI 证明明确行为具备回归保护，不等于生产级高并发能力；
+- 61 项测试与 CI 证明明确行为具备回归保护，不等于生产级高并发能力；
 - FastEmbed 是 CPU 语义向量能力，不等于做过 GPU 推理优化；
 - LangGraph 是编排框架，当前项目不是 Agent 强化学习/算法研究。
 

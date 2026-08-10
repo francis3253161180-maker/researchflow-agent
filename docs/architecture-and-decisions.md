@@ -17,7 +17,7 @@ ResearchFlow 将这些要求拆成可观察、可测试的组件：文档解析�
 | 组件 | 代码位置 | 职责 | 有意不做的事 |
 | --- | --- | --- | --- |
 | FastAPI | `app/main.py` | 文件上传、聊天、会话/turn 恢复、指标与 run 查询 API；可选 API Key | 不承担复杂业务编排 |
-| Ingestion | `app/ingestion.py` | 解析 PDF/DOCX/MD/TXT，保留页码/小节元数据 | 不把扫描件 PDF 伪装成可靠可解析文本 |
+| Ingestion | `app/ingestion.py` | 解析 PDF/DOCX/MD/TXT，保留页码/多级小节元数据 | 不把扫描件 PDF 或 DOCX 渲染页码伪装成可靠原生结构 |
 | Retrieval | `app/retrieval.py` | 分块、词法检索、向量检索、RRF 融合 | 不在 V1 引入独立向量数据库 |
 | LangGraph | `app/graph.py` | 显式状态流转、条件路由、最多一次检索重试 | 不把每个问题都拆成多 Agent |
 | LLM | `app/llm.py` | 离线确定性回答或 OpenAI-compatible / DeepSeek 生成；单轮可覆盖 thinking mode | 不将密钥或内部 reasoning 写进仓库或前端 |
@@ -110,7 +110,7 @@ V1 的词法检索与向量检索各有价值：前者对专业术语、文件�
 
 ## 6. 已验证的内容与验证边界
 
-- `pytest` 覆盖 59 项单元、API 与 MCP 端到端测试，包括上传/删除、页码元数据、结构化引用校验与相关性状态优先级、会话/turn 恢复、per-run thinking mode、只使用已验证 turn 的会话感知 Query Rewrite、SSE 节点状态与最终结果、首轮模型标题、异常脱敏、轨迹持久化以及 stdio 工具发现/调用。
+- `pytest` 覆盖 61 项单元、API 与 MCP 端到端测试，包括上传/删除、PDF 跨页标题栈、DOCX 多级 Heading/表格继承、页码元数据、结构化引用校验与相关性状态优先级、会话/turn 恢复、per-run thinking mode、只使用已验证 turn 的会话感知 Query Rewrite、SSE 节点状态与最终结果、首轮模型标题、异常脱敏、轨迹持久化以及 stdio 工具发现/调用。
 - `scripts/run_eval.py` 有 8 条受控回归样例，并已在 hash 和 FastEmbed 两种后端下跑通检索命中、引用生成与校验。
 - GitHub Actions 在 push/PR 时执行测试和 Docker 镜像构建。
 

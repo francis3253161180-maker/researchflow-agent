@@ -19,7 +19,7 @@ ResearchFlow 不是只调用一次模型的聊天壳。它把文档解析、知�
 - **结构化引用校验与受控重试**：按 `no_evidence → evidence_not_relevant → citation_missing/citation_out_of_range → citation_indices_valid` 判断；无候选或候选不相关时做一次受控 Rewrite/重检索，引用缺失与越界只在原证据上重答一次。
 - **可观测与多轮会话**：SQLite 持久化会话、每轮 run、消息、原始/检索 Query、改写原因、引用、路由、节点事件（累计/节点耗时）、校验状态、回答模式、脱敏错误类型和延迟；网页通过 SSE 实时展示 LangGraph 节点状态，最终回答经校验后一次性提交，并可在回答底部就地展开引用与运行轨迹。
 - **安全边界**：上传文档被视为不可信证据而非指令；可选 `X-API-Key` 保护 `/api/*`；上传大小受服务端限制。
-- **可部署与可验证**：提供多轮网页、OpenAPI、Docker Compose、59 项测试和多层离线回归评测。
+- **可部署与可验证**：提供多轮网页、OpenAPI、Docker Compose、61 项测试和多层离线回归评测。
 
 ## 架构
 
@@ -144,7 +144,7 @@ python scripts/run_eval.py --embedding-provider hash
 python scripts/run_eval.py --embedding-provider fastembed
 ```
 
-当前本机结果：59 项测试全部通过；其中包含会话恢复、逐轮 citations、per-run DeepSeek thinking mode、首轮模型标题、只使用已验证对话的 Query Rewrite、无候选或候选不相关时的一次受控重写/检索、引用缺失与编号越界后的差异化同证据重答、Verify 优先级、SSE 节点状态与最终结果、MCP `stdio` 客户端与独立 Server 的端到端握手、工具发现和调用。8 条**受控回归样例**在两种向量后端下均完成检索命中、引用生成和校验（8/8）。GitHub Actions 会在 push/PR 时运行测试并从 Dockerfile 构建镜像。该数据集验证的是项目链路和回归行为，样例内容来自本项目功能说明，**不代表真实企业语料上的准确率、召回率或幻觉率**。
+当前本机结果：61 项测试全部通过；其中包含会话恢复、逐轮 citations、per-run DeepSeek thinking mode、首轮模型标题、只使用已验证对话的 Query Rewrite、无候选或候选不相关时的一次受控重写/检索、引用缺失与编号越界后的差异化同证据重答、PDF 跨页标题栈、DOCX 多级 Heading/表格继承、Verify 优先级、SSE 节点状态与最终结果、MCP `stdio` 客户端与独立 Server 的端到端握手、工具发现和调用。8 条**受控回归样例**在两种向量后端下均完成检索命中、引用生成和校验（8/8）。GitHub Actions 会在 push/PR 时运行测试并从 Dockerfile 构建镜像。该数据集验证的是项目链路和回归行为，样例内容来自本项目功能说明，**不代表真实企业语料上的准确率、召回率或幻觉率**。
 
 ### 小规模论文检索评测
 
@@ -190,6 +190,7 @@ tests/              # 单元和 API 端到端测试
 想在短时间内真正掌握项目而非只会演示，请从 [周末学习冲刺](docs/weekend-study-guide.md) 开始，并按 [学习与面试路径](docs/learning-path.md) 操作。
 
 FastAPI、LangGraph、SQLite 与配套框架的核心入门材料统一放在 [快速入门手册](docs/quickstarts/README.md)；需要复盘组件关系时查看 [知识关系图全集](docs/knowledge-maps.md)。
+文档导入时如何保留页码、跨页标题栈和 DOCX 结构，请查看[文档结构元数据说明](docs/document-structure-metadata.md)。
 
 ## 设计取舍与下一步
 
@@ -204,7 +205,7 @@ FastAPI、LangGraph、SQLite 与配套框架的核心入门材料统一放在 [�
 1. **问题**：普通 RAG demo 缺少证据追溯、失败定位和可重复验证。
 2. **方案**：将 Agent 拆成检索/工具路由、引用约束、校验重试和 SQLite 运行轨迹，并以 LangGraph 显式编排。
 3. **工程取舍**：默认离线保证测试和演示可复现；可选 FastEmbed 在 CPU 上完成语义检索；真实 LLM 通过环境变量注入，密钥不入库。
-4. **证据**：上传、引用页码/分节、会话恢复、per-run thinking mode、首轮模型标题、可信短期记忆的 Query Rewrite 轨迹、按 Verify 原因分流的检索/生成修复、API 防护、59 项测试、MCP 端到端调用和受控回归评测均有对应代码；后续需要补齐更严格的引用忠实度验证。
+4. **证据**：上传、引用页码/分节、PDF 跨页标题栈、DOCX 多级 Heading/表格继承、会话恢复、per-run thinking mode、首轮模型标题、可信短期记忆的 Query Rewrite 轨迹、按 Verify 原因分流的检索/生成修复、API 防护、61 项测试、MCP 端到端调用和受控回归评测均有对应代码；后续需要补齐更严格的引用忠实度验证。
 
 ## 深入阅读
 

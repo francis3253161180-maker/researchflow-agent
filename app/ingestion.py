@@ -1,11 +1,17 @@
 from __future__ import annotations
 
 import re
+import statistics
 from dataclasses import dataclass
 from io import BytesIO
 from pathlib import Path
 
 from docx import Document
+from docx.oxml.table import CT_Tbl
+from docx.oxml.text.paragraph import CT_P
+from docx.table import Table
+from docx.text.paragraph import Paragraph
+import pymupdf
 from openpyxl import load_workbook
 from pypdf import PdfReader
 
@@ -38,25 +44,204 @@ def _normalize(text: str) -> str:
     return re.sub(r"\n{3,}", "\n\n", safe_text.replace("\r\n", "\n")).strip()
 
 
+def _section_path(stack: list[tuple[int, str]]) -> str | None:
+    return " › ".join(item[1] for item in stack) or None
+
+
+def _update_heading_stack(stack: list[tuple[int, str]], level: int, heading: str) -> None:
+    """Replace the active branch while preserving parent heading context."""
+    compact = _normalize(heading).replace("\n", " ")
+    if not compact:
+        return
+    level = max(1, min(level, 9))
+    if stack and stack[-1][1] == compact and stack[-1][0] == level:
+        return
+    while stack and stack[-1][0] >= level:
+        stack.pop()
+    stack.append((level, compact))
+
+
 def _markdown_blocks(text: str) -> list[TextBlock]:
     blocks: list[TextBlock] = []
-    current_section = ""
+    heading_stack: list[tuple[int, str]] = []
     buffer: list[str] = []
 
     def flush() -> None:
         nonlocal buffer
         if buffer:
-            blocks.append(TextBlock(_normalize("\n".join(buffer)), section=current_section or None))
+            blocks.append(TextBlock(_normalize("\n".join(buffer)), section=_section_path(heading_stack)))
             buffer = []
 
     for line in text.splitlines():
-        if line.lstrip().startswith("#"):
+        heading = re.match(r"^\s*(#{1,6})\s+(.+?)\s*#*\s*$", line)
+        if heading:
             flush()
-            current_section = line.lstrip("# ").strip()
+            _update_heading_stack(heading_stack, len(heading.group(1)), heading.group(2))
         else:
             buffer.append(line)
     flush()
     return [block for block in blocks if block.content]
+
+
+def _docx_heading_level(paragraph: Paragraph) -> int | None:
+    """Read built-in Word heading levels without treating arbitrary text as a heading."""
+    style = paragraph.style
+    seen: set[str] = set()
+    while style is not None:
+        style_id = str(getattr(style, "style_id", ""))
+        name = str(getattr(style, "name", ""))
+        signature = f"{style_id}|{name}"
+        if signature in seen:
+            break
+        seen.add(signature)
+        match = re.search(r"(?:heading|标题)\s*([1-9]\d*)$", f"{name} {style_id}", re.IGNORECASE)
+        if match:
+            return int(match.group(1))
+        style = getattr(style, "base_style", None)
+    return None
+
+
+def _iter_docx_blocks(document):
+    """Yield paragraphs and tables in their actual WordprocessingML order."""
+    for child in document.element.body.iterchildren():
+        if isinstance(child, CT_P):
+            yield Paragraph(child, document)
+        elif isinstance(child, CT_Tbl):
+            yield Table(child, document)
+
+
+def _table_text(table: Table) -> str:
+    rows: list[str] = []
+    for row in table.rows:
+        cells = [cell.text.strip() for cell in row.cells if cell.text.strip()]
+        if cells:
+            rows.append(" | ".join(cells))
+    return _normalize("\n".join(rows))
+
+
+def _docx_blocks(payload: bytes) -> list[TextBlock]:
+    document = Document(BytesIO(payload))
+    blocks: list[TextBlock] = []
+    heading_stack: list[tuple[int, str]] = []
+    buffer: list[str] = []
+
+    def flush() -> None:
+        nonlocal buffer
+        content = _normalize("\n\n".join(buffer))
+        if content:
+            blocks.append(TextBlock(content, section=_section_path(heading_stack)))
+        buffer = []
+
+    for item in _iter_docx_blocks(document):
+        if isinstance(item, Paragraph):
+            text = _normalize(item.text)
+            if not text:
+                continue
+            heading_level = _docx_heading_level(item)
+            if heading_level is not None:
+                flush()
+                _update_heading_stack(heading_stack, heading_level, text)
+            else:
+                buffer.append(text)
+        else:
+            flush()
+            content = _table_text(item)
+            if content:
+                blocks.append(TextBlock(content, section=_section_path(heading_stack)))
+    flush()
+    return blocks
+
+
+@dataclass(frozen=True)
+class _PdfLine:
+    text: str
+    size: float
+    bold: bool
+    y0: float
+    y1: float
+
+
+def _pdf_lines(page) -> list[_PdfLine]:
+    lines: list[_PdfLine] = []
+    for block in page.get_text("dict", sort=True).get("blocks", []):
+        if block.get("type") != 0:
+            continue
+        for line in block.get("lines", []):
+            spans = line.get("spans", [])
+            text = _normalize("".join(str(span.get("text", "")) for span in spans))
+            if not text:
+                continue
+            sizes = [float(span.get("size", 0.0)) for span in spans if span.get("text", "").strip()]
+            if not sizes:
+                continue
+            fonts = " ".join(str(span.get("font", "")) for span in spans).lower()
+            bbox = line.get("bbox", (0.0, 0.0, 0.0, 0.0))
+            lines.append(_PdfLine(text, max(sizes), "bold" in fonts or "black" in fonts, float(bbox[1]), float(bbox[3])))
+    return lines
+
+
+def _numbered_heading_level(text: str) -> int | None:
+    match = re.match(r"^\s*(\d+(?:\.\d+){0,5}|[IVXLCDM]+|[A-Z])(?:[.)])?\s+\S", text)
+    if not match:
+        return None
+    label = match.group(1)
+    return len(label.split(".")) if label[0].isdigit() else 1
+
+
+def _pdf_heading_level(line: _PdfLine, body_size: float, repeated_margin_text: set[str]) -> int | None:
+    text = line.text
+    normalized = " ".join(text.lower().split())
+    if normalized in repeated_margin_text or len(text) > 180:
+        return None
+    numbered_level = _numbered_heading_level(text)
+    font_ratio = line.size / max(body_size, 1.0)
+    # Numbering is strong structural evidence; unnumbered headings require a
+    # clearer layout signal to avoid treating ordinary short prose as a title.
+    if numbered_level is not None and (line.bold or font_ratio >= 1.05):
+        return numbered_level
+    if font_ratio >= 1.55 and len(text) <= 120:
+        return 1
+    if line.bold and font_ratio >= 1.25 and len(text) <= 100:
+        return 2
+    return None
+
+
+def _pdf_blocks(payload: bytes) -> list[TextBlock]:
+    document = pymupdf.open(stream=payload, filetype="pdf")
+    try:
+        pages = [_pdf_lines(page) for page in document]
+        body_sizes = [line.size for page_lines in pages for line in page_lines if len(line.text) >= 30]
+        body_size = statistics.median(body_sizes) if body_sizes else 10.0
+        margin_occurrences: dict[str, set[int]] = {}
+        for page_number, (page, lines) in enumerate(zip(document, pages), start=1):
+            for line in lines:
+                if line.y0 <= 72 or line.y1 >= page.rect.height - 72:
+                    margin_occurrences.setdefault(" ".join(line.text.lower().split()), set()).add(page_number)
+        repeated_margin_text = {text for text, seen_pages in margin_occurrences.items() if len(seen_pages) >= 2}
+
+        blocks: list[TextBlock] = []
+        heading_stack: list[tuple[int, str]] = []
+        for page_number, page_lines in enumerate(pages, start=1):
+            buffer: list[str] = []
+
+            def flush() -> None:
+                nonlocal buffer
+                content = _normalize("\n".join(buffer))
+                if content:
+                    blocks.append(TextBlock(content, page=page_number, section=_section_path(heading_stack)))
+                buffer = []
+
+            for line in page_lines:
+                level = _pdf_heading_level(line, body_size, repeated_margin_text)
+                if level is not None:
+                    flush()
+                    _update_heading_stack(heading_stack, level, line.text)
+                else:
+                    buffer.append(line.text)
+            flush()
+        return blocks
+    finally:
+        document.close()
 
 
 def _spreadsheet_blocks(payload: bytes) -> list[TextBlock]:
@@ -127,23 +312,18 @@ def parse_upload(filename: str, payload: bytes, source: str = "upload") -> Parse
 
     title = Path(filename).stem[:200] or "untitled"
     if suffix == ".pdf":
-        reader = PdfReader(BytesIO(payload))
-        blocks = [TextBlock(_normalize(page.extract_text() or ""), page=index) for index, page in enumerate(reader.pages, start=1)]
+        try:
+            blocks = _pdf_blocks(payload)
+        except Exception:
+            # Preserve the existing text-layer fallback for malformed PDFs or
+            # rare parser incompatibilities. It retains page numbers but does
+            # not claim a section when layout metadata was unavailable.
+            reader = PdfReader(BytesIO(payload))
+            blocks = [TextBlock(_normalize(page.extract_text() or ""), page=index) for index, page in enumerate(reader.pages, start=1)]
         blocks = [block for block in blocks if block.content]
         media_type = "application/pdf"
     elif suffix == ".docx":
-        document = Document(BytesIO(payload))
-        paragraphs = [paragraph.text for paragraph in document.paragraphs if paragraph.text.strip()]
-        # Resumes, reports, and forms often place all visible content in tables.
-        # python-docx does not include table cells in ``document.paragraphs``.
-        table_rows = []
-        for table in document.tables:
-            for row in table.rows:
-                cells = [cell.text.strip() for cell in row.cells if cell.text.strip()]
-                if cells:
-                    table_rows.append(" | ".join(cells))
-        text = _normalize("\n".join([*paragraphs, *table_rows]))
-        blocks = _markdown_blocks(text)
+        blocks = _docx_blocks(payload)
         media_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     elif suffix == ".xlsx":
         try:
