@@ -229,6 +229,7 @@ def test_web_ui_exposes_upload_and_citation_surfaces(tmp_path):
         assert "sessions-panel" in page.text
         assert "waitForService" in page.text
         assert "initializeApplication" in page.text
+        assert "max-height:255px" in page.text
         assert "researchflow-sidebar-width" in page.text
         assert ".turn { flex:none;" in page.text
         assert "Shift + Enter" in page.text
