@@ -88,7 +88,7 @@ git status
 
 ## 面试的 90 秒版本
 
-> 我做了一个面向科研文档的本地 Agent/RAG 服务。它支持 PDF、DOCX、Markdown、TXT 导入，检索端采用词法检索和向量检索的 RRF 融合，并将 PDF 页码和 Markdown 分节作为引用元数据返回。Agent 用 LangGraph 显式编排计划、会话感知 Query Rewrite、检索/工具、回答、结构化引用校验和持久化；无证据时最多重写并重检索一次，引用缺失或越界时只基于同一证据重答一次，避免无界循环与证据漂移。服务通过 FastAPI 暴露，SQLite 保存会话、逐轮 citations 与运行轨迹，网页可恢复多轮历史并可为单轮选择 DeepSeek 快速回答或深度思考；默认离线可复现，也可通过环境变量接 DeepSeek。同时用独立 MCP Server 向外部 Agent Host 暴露混合检索、精确引用回查和安全计算。项目有 49 项测试、8 条受控回归样例，并在 GitHub Actions 中持续测试和构建 Docker 镜像。
+> 我做了一个面向科研文档的本地 Agent/RAG 服务。它支持 PDF、DOCX、Markdown、TXT 导入，检索端采用词法检索和向量检索的 RRF 融合，并将 PDF 页码和 Markdown 分节作为引用元数据返回。Agent 用 LangGraph 显式编排计划、会话感知 Query Rewrite、检索/工具、回答、结构化引用校验和持久化；无证据时最多重写并重检索一次，引用缺失或越界时只基于同一证据重答一次，避免无界循环与证据漂移。服务通过 FastAPI 暴露，SQLite 保存会话、逐轮 citations 与运行轨迹，网页可恢复多轮历史并可为单轮选择 DeepSeek 快速回答或深度思考；首轮结束后会在模型可用时生成简短会话标题，离线时保留首问标题。同时用独立 MCP Server 向外部 Agent Host 暴露混合检索、精确引用回查和安全计算。项目有 51 项测试、8 条受控回归样例，并在 GitHub Actions 中持续测试和构建 Docker 镜像。
 
 接着准备两个追问：
 
@@ -98,7 +98,7 @@ git status
 ## 不应在面试中夸大的内容
 
 - 8/8 是受控项目回归集，不是企业场景准确率；
-- 49 项测试与 CI 证明明确行为具备回归保护，不等于生产级高并发能力；
+- 51 项测试与 CI 证明明确行为具备回归保护，不等于生产级高并发能力；
 - FastEmbed 是 CPU 语义向量能力，不等于做过 GPU 推理优化；
 - LangGraph 是编排框架，当前项目不是 Agent 强化学习/算法研究。
 

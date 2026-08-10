@@ -298,6 +298,21 @@ class Database:
                 (session_id, initial_title, now, now),
             )
 
+    def set_session_title(self, session_id: str, title: str) -> None:
+        """Update a title explicitly generated for an existing conversation."""
+        compact = " ".join(title.split()).strip()
+        if not compact:
+            return
+        with self.connect() as conn:
+            conn.execute(
+                "UPDATE sessions SET title = ?, updated_at = ? WHERE id = ?",
+                (compact[:48], utc_now(), session_id),
+            )
+
+    def session_run_count(self, session_id: str) -> int:
+        with self.connect() as conn:
+            return int(conn.execute("SELECT COUNT(*) FROM runs WHERE session_id = ?", (session_id,)).fetchone()[0])
+
     def list_sessions(self) -> list[dict[str, Any]]:
         with self.connect() as conn:
             rows = conn.execute(

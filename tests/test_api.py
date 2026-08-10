@@ -78,6 +78,21 @@ def test_sessions_restore_turns_and_per_run_thinking_mode(tmp_path):
         assert all("citations" in turn for turn in turns.json())
 
 
+def test_first_turn_can_replace_the_fallback_session_title(tmp_path):
+    app = create_app(Settings(db_path=str(tmp_path / "session-title.db")))
+    with TestClient(app) as client:
+        app.state.service.llm.generate_session_title = lambda _query: "ResearchFlow 检索机制"
+        client.post(
+            "/api/documents",
+            json={"title": "证据", "source": "unit-test", "content": "ResearchFlow uses hybrid retrieval with RRF."},
+        )
+        response = client.post("/api/chat", json={"query": "ResearchFlow 如何检索？"})
+        assert response.status_code == 200
+        session_id = response.json()["session_id"]
+        saved = next(item for item in client.get("/api/sessions").json() if item["id"] == session_id)
+        assert saved["title"] == "ResearchFlow 检索机制"
+
+
 def test_upload_lists_and_deletes_document(tmp_path):
     app = create_app(Settings(db_path=str(tmp_path / "upload.db")))
     content = "# ResearchFlow\n\nLangGraph uses explicit state, nodes, and conditional edges. The system validates citations before persisting an answer."
@@ -206,6 +221,11 @@ def test_web_ui_exposes_upload_and_citation_surfaces(tmp_path):
         assert "reranker-toggle" in page.text
         assert "/api/reranker/toggle" in page.text
         assert "renderMarkdown" in page.text
+        assert "sidebar-resizer" in page.text
+        assert "toggleTurn" in page.text
+        assert "turn-details" in page.text
+        assert "researchflow-sidebar-width" in page.text
+        assert ".turn { flex:none;" in page.text
         assert "Shift + Enter" in page.text
         assert "html.push('<hr>')" in page.text
         assert "newSession" in page.text

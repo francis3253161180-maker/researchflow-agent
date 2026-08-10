@@ -106,4 +106,11 @@ class ResearchFlowService:
             initial_state(session_id, query, document_ids=document_ids, thinking_mode=effective_thinking),
             {"recursion_limit": 12},
         )
+        # Preserve the local first-question fallback in offline/error cases.
+        # A title is generated only once, after the first run has been safely
+        # persisted, so it never affects evidence, answer, or run tracing.
+        if self.db.session_run_count(session_id) == 1:
+            title = self.llm.generate_session_title(query)
+            if title:
+                self.db.set_session_title(session_id, title)
         return result

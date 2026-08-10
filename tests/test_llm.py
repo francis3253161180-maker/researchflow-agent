@@ -54,3 +54,25 @@ def test_query_rewrite_uses_prior_user_questions_and_disables_thinking(monkeypat
     }
     assert captured["payload"]["thinking"] == {"type": "disabled"}
     assert "介绍 HoloQuant 的量化方法" in captured["payload"]["messages"][1]["content"]
+
+
+def test_session_title_is_short_and_disables_thinking(monkeypatch):
+    captured = {}
+
+    class FakeResponse:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {"choices": [{"message": {"content": "ResearchFlow 检索排序机制"}}]}
+
+    def fake_post(_url, headers, json, timeout):
+        captured.update({"headers": headers, "payload": json, "timeout": timeout})
+        return FakeResponse()
+
+    monkeypatch.setattr(llm_module.httpx, "post", fake_post)
+    client = LLMClient(Settings(llm_base_url="https://example.invalid/v1", llm_api_key="test", llm_model="test-model"))
+
+    assert client.generate_session_title("ResearchFlow Agent 是如何检索和排序的？") == "ResearchFlow 检索排序机制"
+    assert captured["payload"]["thinking"] == {"type": "disabled"}
+    assert captured["payload"]["max_tokens"] == 48

@@ -17,9 +17,9 @@ ResearchFlow 不是只调用一次模型的聊天壳。它把文档解析、知�
 - **CPU 语义检索**：可选 FastEmbed 多语种 ONNX embedding，不需要 GPU；默认哈希向量便于离线测试与快速启动。
 - **LangGraph 编排**：`plan → rewrite → retrieve / tool → answer → verify → persist`；知识问答会先在同一会话的历史用户问题上消解追问，数学表达式走受限计算工具。
 - **结构化引用校验与受控重试**：明确区分 `no_evidence`、`citation_missing`、`citation_out_of_range` 与 `citation_indices_valid`；无证据时重检索一次，引用格式问题只用原证据重答一次。
-- **可观测与多轮会话**：SQLite 持久化会话、每轮 run、消息、原始/检索 Query、改写原因、引用、路由、节点事件（累计/节点耗时）、校验状态、回答模式、脱敏错误类型和延迟；网页支持新建/恢复会话，并逐轮展开证据和轨迹。
+- **可观测与多轮会话**：SQLite 持久化会话、每轮 run、消息、原始/检索 Query、改写原因、引用、路由、节点事件（累计/节点耗时）、校验状态、回答模式、脱敏错误类型和延迟；网页支持可拖拽侧栏、独立滚动历史区，并按轮展开证据和轨迹。
 - **安全边界**：上传文档被视为不可信证据而非指令；可选 `X-API-Key` 保护 `/api/*`；上传大小受服务端限制。
-- **可部署与可验证**：提供多轮网页、OpenAPI、Docker Compose、49 项测试和多层离线回归评测。
+- **可部署与可验证**：提供多轮网页、OpenAPI、Docker Compose、51 项测试和多层离线回归评测。
 
 ## 架构
 
@@ -143,7 +143,7 @@ python scripts/run_eval.py --embedding-provider hash
 python scripts/run_eval.py --embedding-provider fastembed
 ```
 
-当前本机结果：49 项测试全部通过；其中包含会话恢复、逐轮 citations、per-run DeepSeek thinking mode、Query Rewrite 的会话承接、无证据时的一次重写/检索、引用编号越界后的同证据重答、MCP `stdio` 客户端与独立 Server 的端到端握手、工具发现和调用。8 条**受控回归样例**在两种向量后端下均完成检索命中、引用生成和校验（8/8）。GitHub Actions 会在 push/PR 时运行测试并从 Dockerfile 构建镜像。该数据集验证的是项目链路和回归行为，样例内容来自本项目功能说明，**不代表真实企业语料上的准确率、召回率或幻觉率**。
+当前本机结果：51 项测试全部通过；其中包含会话恢复、逐轮 citations、per-run DeepSeek thinking mode、首轮模型标题、Query Rewrite 的会话承接、无证据时的一次重写/检索、引用编号越界后的同证据重答、MCP `stdio` 客户端与独立 Server 的端到端握手、工具发现和调用。8 条**受控回归样例**在两种向量后端下均完成检索命中、引用生成和校验（8/8）。GitHub Actions 会在 push/PR 时运行测试并从 Dockerfile 构建镜像。该数据集验证的是项目链路和回归行为，样例内容来自本项目功能说明，**不代表真实企业语料上的准确率、召回率或幻觉率**。
 
 ### 小规模论文检索评测
 
@@ -203,7 +203,7 @@ FastAPI、LangGraph、SQLite 与配套框架的核心入门材料统一放在 [�
 1. **问题**：普通 RAG demo 缺少证据追溯、失败定位和可重复验证。
 2. **方案**：将 Agent 拆成检索/工具路由、引用约束、校验重试和 SQLite 运行轨迹，并以 LangGraph 显式编排。
 3. **工程取舍**：默认离线保证测试和演示可复现；可选 FastEmbed 在 CPU 上完成语义检索；真实 LLM 通过环境变量注入，密钥不入库。
-4. **证据**：上传、引用页码/分节、会话恢复、per-run thinking mode、Query Rewrite 轨迹、结构化引用验证、API 防护、49 项测试、MCP 端到端调用和受控回归评测均有对应代码；后续需要补齐更严格的引用忠实度验证。
+4. **证据**：上传、引用页码/分节、会话恢复、per-run thinking mode、首轮模型标题、Query Rewrite 轨迹、结构化引用验证、API 防护、51 项测试、MCP 端到端调用和受控回归评测均有对应代码；后续需要补齐更严格的引用忠实度验证。
 
 ## 深入阅读
 

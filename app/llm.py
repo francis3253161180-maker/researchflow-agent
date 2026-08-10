@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import httpx
 import json
+import re
 import time
 
 from app.config import Settings
@@ -81,6 +82,36 @@ class LLMClient:
             return {"retrieval_query": candidate, "rewritten": candidate != query, "reason": str(data.get("reason", "model_rewrite"))[:200]}
         except Exception as exc:
             return {"retrieval_query": query, "rewritten": False, "reason": f"rewrite_fallback:{type(exc).__name__}"}
+
+    def generate_session_title(self, first_query: str) -> str:
+        """Generate one short session title without delaying on provider retries."""
+        if not self.configured:
+            return ""
+        messages = [
+            {
+                "role": "system",
+                "content": "Generate one concise Chinese title for a research-document chat. Return only the title, no quotation marks, markdown, explanation, or punctuation. Keep it within 18 Chinese characters (or 32 characters total).",
+            },
+            {"role": "user", "content": first_query},
+        ]
+        headers = {"Authorization": f"Bearer {self.api_key}"} if self.api_key else {}
+        payload = {
+            "model": self.model,
+            "messages": messages,
+            "temperature": 0.1,
+            "max_tokens": 48,
+            "thinking": {"type": "disabled"},
+        }
+        try:
+            response = httpx.post(f"{self.base_url}/chat/completions", headers=headers, json=payload, timeout=8)
+            response.raise_for_status()
+            content = response.json()["choices"][0]["message"].get("content")
+            if not isinstance(content, str):
+                return ""
+            title = re.sub(r"[\r\n]+", " ", content).strip().strip("`\"'“”‘’")
+            return title[:32] if title and len(title) <= 80 else ""
+        except (httpx.RequestError, httpx.HTTPStatusError, KeyError, IndexError, TypeError, ValueError):
+            return ""
 
     def _complete(self, messages: list[dict], thinking_mode: str | None, max_tokens: int) -> str:
         headers = {"Authorization": f"Bearer {self.api_key}"} if self.api_key else {}
