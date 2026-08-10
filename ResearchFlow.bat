@@ -29,10 +29,10 @@ if not errorlevel 1 (
 )
 
 echo Starting ResearchFlow Agent...
-echo The browser will open shortly: %URL%
+echo The browser will open after the service is ready: %URL%
 echo To stop the server, press Ctrl+C in this window.
 echo.
-start "ResearchFlow Browser" powershell.exe -NoProfile -WindowStyle Hidden -Command "Start-Sleep -Seconds 2; Start-Process '%URL%'"
+start "ResearchFlow Browser" powershell.exe -NoProfile -WindowStyle Hidden -Command "$url='%URL%'; for ($attempt=0; $attempt -lt 30; $attempt++) { try { Invoke-WebRequest -UseBasicParsing -Uri ($url + '/health') -TimeoutSec 1 | Out-Null; Start-Process $url; break } catch { Start-Sleep -Milliseconds 500 } }"
 "%PYTHON%" -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 
 set "EXIT_CODE=%ERRORLEVEL%"
