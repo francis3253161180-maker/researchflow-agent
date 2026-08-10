@@ -36,8 +36,10 @@ sequenceDiagram
     participant L as LLM / Offline Answerer
     participant D as SQLite
 
-    U->>A: POST /api/chat (session_id, thinking_mode)
+    U->>A: POST /api/chat/stream (session_id, thinking_mode)
     A->>G: create run + initial state
+    G-->>A: SSE status: plan
+    A-->>U: 实时节点状态
     G->>G: plan and route
     alt 知识型问题且语料非空
         G->>G: session-aware query rewrite
@@ -61,7 +63,7 @@ sequenceDiagram
     end
     G->>D: persist session, turn, messages, citations, events, errors, latency
     D-->>A: run id and trace
-    A-->>U: answer, citations, verification, run id
+    A-->>U: SSE complete: answer, citations, verification, run id
 ```
 
 ### 关键状态与约束
@@ -108,7 +110,7 @@ V1 的词法检索与向量检索各有价值：前者对专业术语、文件�
 
 ## 6. 已验证的内容与验证边界
 
-- `pytest` 覆盖 51 项单元、API 与 MCP 端到端测试，包括上传/删除、页码元数据、结构化引用校验、会话/turn 恢复、per-run thinking mode、会话感知 Query Rewrite、首轮模型标题、异常脱敏、轨迹持久化以及 stdio 工具发现/调用。
+- `pytest` 覆盖 52 项单元、API 与 MCP 端到端测试，包括上传/删除、页码元数据、结构化引用校验、会话/turn 恢复、per-run thinking mode、会话感知 Query Rewrite、SSE 节点状态与最终结果、首轮模型标题、异常脱敏、轨迹持久化以及 stdio 工具发现/调用。
 - `scripts/run_eval.py` 有 8 条受控回归样例，并已在 hash 和 FastEmbed 两种后端下跑通检索命中、引用生成与校验。
 - GitHub Actions 在 push/PR 时执行测试和 Docker 镜像构建。
 

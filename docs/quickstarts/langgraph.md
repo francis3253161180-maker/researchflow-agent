@@ -151,7 +151,7 @@ ResearchFlow 有两层保护：
 - `stream(...)`：逐步返回节点/状态更新，适合前端进度和调试；
 - `ainvoke` / `astream`：异步版本，前提是节点和依赖真正支持异步。
 
-ResearchFlow V1 使用同步 `invoke`，网页最终展示持久化后的事件列表；尚未实现 token 或节点级实时流式输出。
+ResearchFlow 同时保留两条调用路径：`POST /api/chat` 使用同步 `invoke`，便于普通 REST 客户端一次取回最终结果；网页使用 `POST /api/chat/stream`，由 `graph.stream(stream_mode=["custom", "updates"], version="v2")` 驱动 SSE。节点启动时通过 `get_stream_writer()` 发出用户可见的状态，节点完成时由 `updates` 确认；最终回答仍必须经过 `verify` 后才以 `complete` 事件提交。当前刻意不做 token 逐字输出，以避免引用校验重试后出现“已展示草稿与最终答案不一致”的体验问题。
 
 ## 8. 图状态、会话记忆、checkpoint 和业务数据库
 

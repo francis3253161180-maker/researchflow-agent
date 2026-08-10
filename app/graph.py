@@ -5,6 +5,7 @@ import time
 from typing import Any, TypedDict
 from uuid import uuid4
 
+from langgraph.config import get_stream_writer
 from langgraph.graph import END, START, StateGraph
 
 from app.db import Database
@@ -43,9 +44,24 @@ def event(state: AgentState, node: str, detail: str, started_at: float | None = 
     return [*state.get("events", []), item]
 
 
+def emit_progress(node: str, message: str) -> None:
+    """Emit a UI-safe status only when the graph is being streamed.
+
+    Normal ``invoke`` remains supported for the REST API and test suite; in
+    that mode LangGraph provides no custom stream writer, so progress is a
+    deliberate no-op rather than a second execution path.
+    """
+    try:
+        writer = get_stream_writer()
+    except RuntimeError:
+        return
+    writer({"node": node, "phase": "running", "message": message})
+
+
 def build_graph(db: Database, retriever: HybridRetriever, llm: LLMClient, retrieval_top_k: int = 6):
     def plan_node(state: AgentState) -> dict[str, Any]:
         started = time.perf_counter()
+        emit_progress("plan", "正在判断问题类型与执行路径…")
         query = state["query"].strip()
         has_math = bool(re.search(r"\d\s*[-+*/%]\s*\d", query))
         route = "tool" if has_math else ("rag" if db.chunk_count() else "direct")
@@ -66,6 +82,7 @@ def build_graph(db: Database, retriever: HybridRetriever, llm: LLMClient, retrie
 
     def rewrite_node(state: AgentState) -> dict[str, Any]:
         started = time.perf_counter()
+        emit_progress("rewrite", "正在结合本会话上下文改写检索问题…")
         prior_questions = [item["content"] for item in db.get_messages(state["session_id"], limit=12) if item["role"] == "user"]
         rewrite = (
             llm.rewrite_query(state["query"], prior_questions)
@@ -78,6 +95,7 @@ def build_graph(db: Database, retriever: HybridRetriever, llm: LLMClient, retrie
 
     def retrieve_node(state: AgentState) -> dict[str, Any]:
         started = time.perf_counter()
+        emit_progress("retrieve", "正在进行 BM25 与向量混合检索…")
         query = state.get("retrieval_query", state["query"])
         rewrite_reason = state.get("rewrite_reason", "")
         if state.get("retry_count", 0) and state.get("verify_reason") == "no_evidence":
@@ -105,6 +123,7 @@ def build_graph(db: Database, retriever: HybridRetriever, llm: LLMClient, retrie
 
     def tool_node(state: AgentState) -> dict[str, Any]:
         started = time.perf_counter()
+        emit_progress("tool", "正在调用安全计算工具…")
         try:
             result = calculate(state["query"])
             errors = state.get("errors", [])
@@ -115,6 +134,7 @@ def build_graph(db: Database, retriever: HybridRetriever, llm: LLMClient, retrie
 
     def answer_node(state: AgentState) -> dict[str, Any]:
         started = time.perf_counter()
+        emit_progress("answer", "正在生成带引用的回答…")
         # A source-scoped request must not inherit factual claims from an
         # earlier answer produced over a different document set.
         memory = [] if state.get("document_ids") is not None else db.get_messages(state["session_id"], limit=6)
@@ -151,6 +171,7 @@ def build_graph(db: Database, retriever: HybridRetriever, llm: LLMClient, retrie
 
     def verify_node(state: AgentState) -> dict[str, Any]:
         started = time.perf_counter()
+        emit_progress("verify", "正在核验回答引用与证据范围…")
         route = state["route"]
         if route == "rag":
             citations = state.get("citations", [])
@@ -178,6 +199,7 @@ def build_graph(db: Database, retriever: HybridRetriever, llm: LLMClient, retrie
         }
 
     def persist_node(state: AgentState) -> dict[str, Any]:
+        emit_progress("persist", "正在保存会话、引用和运行轨迹…")
         latency_ms = round((time.perf_counter() - state["started_at"]) * 1000, 2)
         db.add_message(state["session_id"], "user", state["query"])
         db.add_message(state["session_id"], "assistant", state["answer"])

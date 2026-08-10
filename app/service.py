@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Iterator
+from typing import Any
 from uuid import uuid4
 
 from app.config import Settings
@@ -106,6 +108,56 @@ class ResearchFlowService:
             initial_state(session_id, query, document_ids=document_ids, thinking_mode=effective_thinking),
             {"recursion_limit": 12},
         )
+        return self._finish_chat(session_id, query, result)
+
+    def stream_chat(
+        self,
+        query: str,
+        session_id: str | None = None,
+        document_ids: list[str] | None = None,
+        thinking_mode: str | None = None,
+    ) -> Iterator[dict[str, Any]]:
+        """Stream node-level progress, then emit the same final result as ``chat``.
+
+        ``custom`` carries deliberate user-facing statuses from graph nodes;
+        ``updates`` confirms each completed node and reconstructs the final
+        state without rerunning the graph.
+        """
+        session_id = session_id or f"ses_{uuid4().hex[:12]}"
+        effective_thinking = thinking_mode if thinking_mode in {"enabled", "disabled"} else self.llm.thinking
+        self.db.ensure_session(session_id)
+        state = initial_state(session_id, query, document_ids=document_ids, thinking_mode=effective_thinking)
+        final_state: dict[str, Any] = dict(state)
+        completed_messages = {
+            "plan": "已确定执行路径。",
+            "rewrite": "检索问题已准备完成。",
+            "retrieve": "候选证据已找回。",
+            "tool": "工具结果已获得。",
+            "answer": "回答草稿已生成。",
+            "verify": "引用校验已完成。",
+            "persist": "运行记录已保存。",
+        }
+        for part in self.graph.stream(
+            state,
+            {"recursion_limit": 12},
+            stream_mode=["custom", "updates"],
+            version="v2",
+        ):
+            if part["type"] == "custom":
+                yield {"type": "status", **part["data"]}
+            elif part["type"] == "updates":
+                for node, update in part["data"].items():
+                    final_state.update(update)
+                    yield {
+                        "type": "status",
+                        "node": node,
+                        "phase": "completed",
+                        "message": completed_messages.get(node, f"{node} 已完成。"),
+                    }
+        result = self._finish_chat(session_id, query, final_state)
+        yield {"type": "complete", "result": result}
+
+    def _finish_chat(self, session_id: str, query: str, result: dict[str, Any]) -> dict[str, Any]:
         # Preserve the local first-question fallback in offline/error cases.
         # A title is generated only once, after the first run has been safely
         # persisted, so it never affects evidence, answer, or run tracing.

@@ -49,6 +49,8 @@ class ChatRequest(BaseModel):
   -> graph.invoke(..., recursion_limit=12)
 ```
 
+网页实时问答走并列的 `ResearchFlowService.stream_chat`：它调用 `graph.stream(..., stream_mode=["custom", "updates"], version="v2")`，把节点开始/完成状态转成 SSE `status` 事件；图只执行一次，`updates` 逐步拼接最终 state，最后发送 `complete`。因此流式 UI 不会绕过 `verify` 或重复调用模型。
+
 服务层只负责组件协调，不包含具体节点逻辑。这样 API 测试和图测试可以分别进行。
 
 ## 4. 初始状态

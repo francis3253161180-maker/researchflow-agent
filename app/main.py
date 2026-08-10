@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
+import json
 from pathlib import Path
 from secrets import compare_digest
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, File, Header, HTTPException, UploadFile, status
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.config import Settings
@@ -116,6 +117,36 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             retrieval_query=result.get("retrieval_query", payload.query),
             rewrite_reason=result.get("rewrite_reason", "not_applicable"),
             verify_reason=result.get("verify_reason", "not_applicable"),
+        )
+
+    @app.post("/api/chat/stream")
+    def chat_stream(payload: ChatRequest, _: None = Depends(require_api_key)):
+        """SSE endpoint for node progress; the final packet is ChatResponse-shaped."""
+        service: ResearchFlowService = app.state.service
+
+        def encode(event_name: str, data: dict) -> str:
+            return f"event: {event_name}\ndata: {json.dumps(data, ensure_ascii=False, separators=(',', ':'))}\n\n"
+
+        def events():
+            try:
+                for packet in service.stream_chat(
+                    payload.query,
+                    payload.session_id,
+                    payload.document_ids,
+                    payload.thinking_mode,
+                ):
+                    event_name = str(packet.get("type", "status"))
+                    data = {key: value for key, value in packet.items() if key != "type"}
+                    yield encode(event_name, data)
+            except Exception as exc:
+                # The client receives a safe failure category while the normal
+                # graph path continues to persist its own sanitized errors.
+                yield encode("error", {"message": "Agent 流式执行暂时失败，请稍后重试。", "error_type": type(exc).__name__})
+
+        return StreamingResponse(
+            events(),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
         )
 
     @app.post("/api/sessions", response_model=SessionSummary)

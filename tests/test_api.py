@@ -1,4 +1,6 @@
 from io import BytesIO
+import json
+import re
 
 from fastapi.testclient import TestClient
 from openpyxl import Workbook
@@ -76,6 +78,32 @@ def test_sessions_restore_turns_and_per_run_thinking_mode(tmp_path):
         assert [turn["query"] for turn in turns.json()] == ["Holo 的结果来自哪里？", "它是否经过引用校验？"]
         assert [turn["thinking_mode"] for turn in turns.json()] == ["enabled", "disabled"]
         assert all("citations" in turn for turn in turns.json())
+
+
+def test_chat_stream_emits_node_progress_and_final_result(tmp_path):
+    app = create_app(Settings(db_path=str(tmp_path / "stream.db")))
+    with TestClient(app) as client:
+        client.post(
+            "/api/documents",
+            json={
+                "title": "Stream evidence",
+                "source": "unit-test",
+                "content": "ResearchFlow uses LangGraph custom streaming to expose node-level progress before persisting the final answer.",
+            },
+        )
+        response = client.post("/api/chat/stream", json={"query": "How does ResearchFlow expose progress?"})
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/event-stream")
+    assert "event: status" in response.text
+    packets = [(event, json.loads(data)) for event, data in re.findall(r"event: ([^\n]+)\ndata: ([^\n]+)", response.text)]
+    status_packets = [data for event, data in packets if event == "status"]
+    assert any(data["node"] == "plan" and data["phase"] == "running" for data in status_packets)
+    assert any(data["node"] == "retrieve" and data["phase"] == "completed" for data in status_packets)
+    assert any(data["node"] == "verify" and data["phase"] == "running" for data in status_packets)
+    final = next(data for event, data in packets if event == "complete")
+    assert final["result"]["verified"] is True
+    assert final["result"]["citations"]
 
 
 def test_first_turn_can_replace_the_fallback_session_title(tmp_path):
@@ -231,8 +259,14 @@ def test_web_ui_exposes_upload_and_citation_surfaces(tmp_path):
         assert "initializeApplication" in page.text
         assert "max-height:255px" in page.text
         assert "grid-auto-rows:max-content" in page.text
+        assert "/api/chat/stream" in page.text
+        assert "streamChat" in page.text
+        assert "pending-turn" in page.text
+        assert "progress-steps" in page.text
+        assert "align-self:flex-end" in page.text
         assert "researchflow-sidebar-width" in page.text
-        assert ".turn { flex:none;" in page.text
+        assert ".turn { display:flex;" in page.text
+        assert "flex:none; flex-direction:column" in page.text
         assert "Shift + Enter" in page.text
         assert "html.push('<hr>')" in page.text
         assert "newSession" in page.text
