@@ -332,6 +332,29 @@ class Database:
             ).fetchall()
         return [self._decode_run(dict(row)) for row in rows]
 
+    def get_recent_verified_turns(self, session_id: str, limit: int = 3) -> list[dict[str, str]]:
+        """Return trusted short-term conversational context in chronological order.
+
+        A previous assistant answer is useful for resolving pronouns, but an
+        unverified answer must not influence a later retrieval query.  Runs
+        are the authoritative place where the answer and its verification
+        result are stored together, unlike the generic messages table.
+        """
+        with self.connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT query, answer, created_at FROM (
+                    SELECT query, answer, created_at
+                    FROM runs
+                    WHERE session_id = ? AND verified = 1
+                    ORDER BY created_at DESC
+                    LIMIT ?
+                ) ORDER BY created_at ASC
+                """,
+                (session_id, limit),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
     def save_run(self, run: dict[str, Any]) -> None:
         now = utc_now()
         with self.connect() as conn:

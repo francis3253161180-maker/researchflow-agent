@@ -91,7 +91,7 @@ class ChatRequest(BaseModel):
 
 ## 6. rewrite 与 retrieve 节点
 
-RAG 路径先执行 `rewrite_node`：它只取同一会话此前的用户问题，调用模型生成不引入新事实的 standalone Query；没有历史、离线模式或模型格式异常时安全回退原 Query。`HybridRetriever.search` 使用 `retrieval_query` 返回由 `RETRIEVAL_TOP_K` 控制的候选证据（默认 6 条）。若首轮 `no_evidence`，会携带该失败原因重新改写并检索一次。
+RAG 路径先执行 `rewrite_node`：它只取同一会话最近 3 个、`verified=true` 的用户问题与助手回答，作为受限的指代消解上下文；这些回答不是事实证据，未验证回答不会进入上下文。模型生成不引入新事实的 standalone Query；正常首问没有可信历史、离线模式或模型格式异常时安全回退原 Query。`HybridRetriever.search` 使用 `retrieval_query` 返回由 `RETRIEVAL_TOP_K` 控制的候选证据（默认 6 条）。若首轮 `no_evidence`，会携带该失败原因进行一次中性扩展改写并重新检索。
 
 这不是基于文档标题、章节或问题映射表的硬编码。改写输出、原因和实际检索 Query 会写进 run，便于检查其是否真的生效。
 
@@ -108,7 +108,7 @@ RAG 路径先执行 `rewrite_node`：它只取同一会话此前的用户问题�
 
 ## 8. answer 节点
 
-回答节点读取当前 session 最近 6 条历史消息。网页可为本轮选择快速回答或深度思考，参数只传给当前模型调用，不修改服务全局配置。两种后端：
+回答节点只读取当前 session 最近 3 个已验证 turn（用户 + 助手），并在显式选择文档范围时清空这部分记忆，避免跨来源把旧回答当作事实。网页可为本轮选择快速回答或深度思考，参数只传给当前模型调用，不修改服务全局配置。两种后端：
 
 - 配置模型：调用 OpenAI-compatible `/chat/completions`，temperature 为 0.1；
 - 未配置模型：使用确定性的离线回答器，把前三条证据截取为引用摘要。
@@ -134,7 +134,7 @@ RAG 路径先执行 `rewrite_node`：它只取同一会话此前的用户问题�
 若 RAG 未通过校验：
 
 1. `verify_node` 增加 `retry_count` 并给出失败类型；
-2. `no_evidence` 首次失败回到 `retrieve`，引用缺失/越界首次失败回到 `answer`；
+2. `no_evidence` 首次失败回到 `retrieve`，并让 Rewrite 仅扩展中性检索表述；引用缺失首次失败回到 `answer`，要求同证据下每个实质性主张带有效 `[n]`；引用越界首次失败也回到 `answer`，但明确限制编号只能是 `[1]..[N]`；
 3. 第二次验证后无论成功与否都进入 `persist`。
 
 业务规则限制一次重试；`recursion_limit=12` 是框架层兜底，二者不要混为一谈。

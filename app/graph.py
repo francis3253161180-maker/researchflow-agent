@@ -58,6 +58,41 @@ def emit_progress(node: str, message: str) -> None:
     writer({"node": node, "phase": "running", "message": message})
 
 
+def _clip_text(value: str, limit: int) -> str:
+    compact = " ".join(value.split())
+    return compact if len(compact) <= limit else f"{compact[:limit]}…"
+
+
+def trusted_short_term_history(db: Database, session_id: str, max_turns: int = 3, max_chars: int = 2400) -> list[dict[str, str]]:
+    """Build bounded rewrite context from recent verified user/assistant turns.
+
+    The history helps resolve references such as “it” while remaining
+    conversational context only: retrieval evidence still comes exclusively
+    from the current search result.
+    """
+    remaining = max_chars
+    history: list[dict[str, str]] = []
+    for turn in db.get_recent_verified_turns(session_id, limit=max_turns):
+        query = _clip_text(str(turn["query"]), 480)
+        if len(query) >= remaining:
+            break
+        remaining -= len(query)
+        answer_limit = min(700, remaining)
+        if answer_limit < 80:
+            break
+        answer = _clip_text(str(turn["answer"]), answer_limit)
+        remaining -= len(answer)
+        history.append({"query": query, "answer": answer})
+    return history
+
+
+def history_as_messages(history: list[dict[str, str]]) -> list[dict[str, str]]:
+    messages: list[dict[str, str]] = []
+    for turn in history:
+        messages.extend(({"role": "user", "content": turn["query"]}, {"role": "assistant", "content": turn["answer"]}))
+    return messages
+
+
 def build_graph(db: Database, retriever: HybridRetriever, llm: LLMClient, retrieval_top_k: int = 6):
     def plan_node(state: AgentState) -> dict[str, Any]:
         started = time.perf_counter()
@@ -83,9 +118,9 @@ def build_graph(db: Database, retriever: HybridRetriever, llm: LLMClient, retrie
     def rewrite_node(state: AgentState) -> dict[str, Any]:
         started = time.perf_counter()
         emit_progress("rewrite", "正在结合本会话上下文改写检索问题…")
-        prior_questions = [item["content"] for item in db.get_messages(state["session_id"], limit=12) if item["role"] == "user"]
+        history = trusted_short_term_history(db, state["session_id"])
         rewrite = (
-            llm.rewrite_query(state["query"], prior_questions)
+            llm.rewrite_query(state["query"], history)
             if hasattr(llm, "rewrite_query")
             else {"retrieval_query": state["query"], "rewritten": False, "reason": "rewriter_unavailable"}
         )
@@ -99,9 +134,9 @@ def build_graph(db: Database, retriever: HybridRetriever, llm: LLMClient, retrie
         query = state.get("retrieval_query", state["query"])
         rewrite_reason = state.get("rewrite_reason", "")
         if state.get("retry_count", 0) and state.get("verify_reason") == "no_evidence":
-            prior_questions = [item["content"] for item in db.get_messages(state["session_id"], limit=12) if item["role"] == "user"]
+            history = trusted_short_term_history(db, state["session_id"])
             retry_rewrite = (
-                llm.rewrite_query(query, prior_questions, failure_reason="no_evidence")
+                llm.rewrite_query(query, history, failure_reason="no_evidence")
                 if hasattr(llm, "rewrite_query")
                 else {"retrieval_query": query, "rewritten": False, "reason": "rewriter_unavailable"}
             )
@@ -137,12 +172,13 @@ def build_graph(db: Database, retriever: HybridRetriever, llm: LLMClient, retrie
         emit_progress("answer", "正在生成带引用的回答…")
         # A source-scoped request must not inherit factual claims from an
         # earlier answer produced over a different document set.
-        memory = [] if state.get("document_ids") is not None else db.get_messages(state["session_id"], limit=6)
+        memory = [] if state.get("document_ids") is not None else history_as_messages(trusted_short_term_history(db, state["session_id"]))
         contexts = state.get("retrieved", [])
         try:
             answer = llm.generate(
                 state["query"], contexts, memory, state.get("tool_result", ""), state.get("thinking_mode"),
                 citation_retry=state.get("retry_count", 0) > 0 and state.get("verify_reason") in {"citation_missing", "citation_out_of_range"},
+                citation_failure_reason=state.get("verify_reason", "") if state.get("retry_count", 0) > 0 else "",
             )
             errors = state.get("errors", [])
         except Exception as exc:
