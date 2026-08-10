@@ -258,6 +258,7 @@ score(d) = Σ 1 / (k + rank_i(d))
 
 - 每次连接启用 WAL、foreign keys；
 - documents 删除级联 chunks；
+- sessions 保存会话标题与时间，runs 通过 session_id 保存每轮回答、citations、thinking mode 与轨迹；
 - messages 对 `(session_id, id)` 建索引；
 - embedding 以 JSON 存储，每次检索加载全部 chunks；
 - schema 使用 `_ensure_column` 做轻量兼容，不等于正式迁移系统。
@@ -314,7 +315,7 @@ score(d) = Σ 1 / (k + rank_i(d))
 
 ### 高频问法
 
-**18项测试说明什么？** 说明当前明确行为有自动回归保护；其中包含 MCP 工具与 stdio 协议调用，不说明生产高并发、真实性能或全部边界已覆盖。
+**45项测试说明什么？** 说明当前明确行为有自动回归保护；其中包含会话恢复、per-run thinking mode、MCP 工具与 stdio 协议调用，不说明生产高并发、真实性能或全部边界已覆盖。
 
 **8/8说明什么？** 说明受控样例的检索、答案、引用和校验链路跑通；不代表企业准确率。
 
@@ -357,7 +358,8 @@ score(d) = Σ 1 / (k + rank_i(d))
 - DeepSeek key存在时默认配置OpenAI-compatible地址和模型；
 - temperature为0.1，max_tokens为1200，timeout为60秒；
 - 只注入最近6条会话消息；
-- 上下文最多使用top-4检索结果，返回citations最多3条；
+- 上下文使用当前 retrieval top-k 的检索结果，并返回同一批 citations，避免回答编号指向前端未展示的证据；
+- 网页可为单轮选择 `thinking=enabled/disabled`，该值覆盖服务默认配置但不改变后续轮次；
 - 模型未配置时走确定性offline fallback。
 
 ### 高频问法

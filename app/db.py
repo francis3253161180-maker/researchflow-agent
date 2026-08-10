@@ -67,6 +67,12 @@ class Database:
                     created_at TEXT NOT NULL
                 );
                 CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id, id);
+                CREATE TABLE IF NOT EXISTS sessions (
+                    id TEXT PRIMARY KEY,
+                    title TEXT NOT NULL DEFAULT '新建对话',
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
                 CREATE TABLE IF NOT EXISTS runs (
                     run_id TEXT PRIMARY KEY,
                     session_id TEXT NOT NULL,
@@ -77,8 +83,11 @@ class Database:
                     latency_ms REAL NOT NULL,
                     events TEXT NOT NULL,
                     errors TEXT NOT NULL DEFAULT '[]',
+                    citations TEXT NOT NULL DEFAULT '[]',
+                    thinking_mode TEXT NOT NULL DEFAULT 'disabled',
                     created_at TEXT NOT NULL
                 );
+                CREATE INDEX IF NOT EXISTS idx_runs_session_created ON runs(session_id, created_at);
                 """
             )
             self._ensure_column(conn, "documents", "filename", "TEXT NOT NULL DEFAULT ''")
@@ -86,6 +95,32 @@ class Database:
             self._ensure_column(conn, "chunks", "page", "INTEGER")
             self._ensure_column(conn, "chunks", "section", "TEXT")
             self._ensure_column(conn, "runs", "errors", "TEXT NOT NULL DEFAULT '[]'")
+            self._ensure_column(conn, "runs", "citations", "TEXT NOT NULL DEFAULT '[]'")
+            self._ensure_column(conn, "runs", "thinking_mode", "TEXT NOT NULL DEFAULT 'disabled'")
+            conn.execute(
+                """
+                INSERT OR IGNORE INTO sessions(id, title, created_at, updated_at)
+                SELECT session_id, '历史会话', MIN(created_at), MAX(created_at)
+                FROM runs GROUP BY session_id
+                """
+            )
+            conn.execute(
+                """
+                UPDATE sessions
+                SET title = COALESCE(
+                    (
+                        SELECT CASE
+                            WHEN LENGTH(TRIM(r.query)) > 32 THEN SUBSTR(TRIM(r.query), 1, 32) || '…'
+                            ELSE TRIM(r.query)
+                        END
+                        FROM runs r WHERE r.session_id = sessions.id
+                        ORDER BY r.created_at ASC LIMIT 1
+                    ),
+                    title
+                )
+                WHERE title = '历史会话'
+                """
+            )
 
     @staticmethod
     def _ensure_column(conn: sqlite3.Connection, table: str, column: str, definition: str) -> None:
@@ -239,12 +274,63 @@ class Database:
             ).fetchall()
         return [dict(row) for row in rows]
 
-    def save_run(self, run: dict[str, Any]) -> None:
+    def create_session(self) -> dict[str, str]:
+        session_id = f"ses_{uuid4().hex[:12]}"
+        now = utc_now()
         with self.connect() as conn:
             conn.execute(
+                "INSERT INTO sessions(id, title, created_at, updated_at) VALUES (?, ?, ?, ?)",
+                (session_id, "新建对话", now, now),
+            )
+        return {"id": session_id, "title": "新建对话", "created_at": now, "updated_at": now, "runs": 0}
+
+    def ensure_session(self, session_id: str, initial_title: str = "新建对话") -> None:
+        now = utc_now()
+        with self.connect() as conn:
+            conn.execute(
+                "INSERT OR IGNORE INTO sessions(id, title, created_at, updated_at) VALUES (?, ?, ?, ?)",
+                (session_id, initial_title, now, now),
+            )
+
+    def list_sessions(self) -> list[dict[str, Any]]:
+        with self.connect() as conn:
+            rows = conn.execute(
                 """
-                INSERT INTO runs(run_id, session_id, query, route, answer, verified, latency_ms, events, errors, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                SELECT s.id, s.title, s.created_at, s.updated_at, COUNT(r.run_id) AS runs
+                FROM sessions s LEFT JOIN runs r ON r.session_id = s.id
+                GROUP BY s.id
+                ORDER BY s.updated_at DESC
+                """
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def get_session_turns(self, session_id: str) -> list[dict[str, Any]]:
+        with self.connect() as conn:
+            rows = conn.execute(
+                "SELECT * FROM runs WHERE session_id = ? ORDER BY created_at ASC", (session_id,)
+            ).fetchall()
+        return [self._decode_run(dict(row)) for row in rows]
+
+    def save_run(self, run: dict[str, Any]) -> None:
+        now = utc_now()
+        with self.connect() as conn:
+            conn.execute(
+                "INSERT OR IGNORE INTO sessions(id, title, created_at, updated_at) VALUES (?, ?, ?, ?)",
+                (run["session_id"], "新建对话", now, now),
+            )
+            conn.execute(
+                """
+                UPDATE sessions
+                SET title = CASE WHEN title IN ('', '新建对话', '历史会话') THEN ? ELSE title END,
+                    updated_at = ?
+                WHERE id = ?
+                """,
+                (self._session_title(run["query"]), now, run["session_id"]),
+            )
+            conn.execute(
+                """
+                INSERT INTO runs(run_id, session_id, query, route, answer, verified, latency_ms, events, errors, citations, thinking_mode, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     run["run_id"],
@@ -256,7 +342,9 @@ class Database:
                     run["latency_ms"],
                     json.dumps(run["events"], ensure_ascii=False),
                     json.dumps(run.get("errors", []), ensure_ascii=False),
-                    utc_now(),
+                    json.dumps(run.get("citations", []), ensure_ascii=False),
+                    run.get("thinking_mode", "disabled"),
+                    now,
                 ),
             )
 
@@ -265,8 +353,17 @@ class Database:
             row = conn.execute("SELECT * FROM runs WHERE run_id = ?", (run_id,)).fetchone()
         if row is None:
             return None
-        result = dict(row)
+        return self._decode_run(dict(row))
+
+    @staticmethod
+    def _session_title(query: str) -> str:
+        compact = " ".join(query.split())
+        return (compact[:32] + "…") if len(compact) > 32 else (compact or "新建对话")
+
+    @staticmethod
+    def _decode_run(result: dict[str, Any]) -> dict[str, Any]:
         result["verified"] = bool(result["verified"])
         result["events"] = json.loads(result["events"])
         result["errors"] = json.loads(result["errors"])
+        result["citations"] = json.loads(result.get("citations") or "[]")
         return result

@@ -32,7 +32,7 @@ def test_calculator_tool_route(tmp_path):
 
 def test_missing_citations_retry_exactly_once(tmp_path):
     class NoCitationLLM:
-        def generate(self, query, contexts, memory, tool_result=""):
+        def generate(self, query, contexts, memory, tool_result="", thinking_mode=None):
             return "模型没有按照要求输出引用。"
 
     db = Database(str(tmp_path / "retry.db"))
@@ -48,7 +48,7 @@ def test_missing_citations_retry_exactly_once(tmp_path):
 
 def test_model_failure_is_sanitized_and_persisted_in_run_trace(tmp_path):
     class FailingLLM:
-        def generate(self, query, contexts, memory, tool_result=""):
+        def generate(self, query, contexts, memory, tool_result="", thinking_mode=None):
             raise RuntimeError("provider returned internal request details")
 
     db = Database(str(tmp_path / "failure.db"))
@@ -66,7 +66,7 @@ def test_model_failure_is_sanitized_and_persisted_in_run_trace(tmp_path):
 
 def test_empty_model_response_is_sanitized_instead_of_rendered_as_blank(tmp_path):
     class EmptyLLM:
-        def generate(self, query, contexts, memory, tool_result=""):
+        def generate(self, query, contexts, memory, tool_result="", thinking_mode=None):
             raise RuntimeError("LLM returned an empty final response")
 
     db = Database(str(tmp_path / "empty-response.db"))
@@ -82,7 +82,7 @@ def test_empty_model_response_is_sanitized_instead_of_rendered_as_blank(tmp_path
 
 def test_model_connection_error_is_explained_to_the_user(tmp_path):
     class UnreachableLLM:
-        def generate(self, query, contexts, memory, tool_result=""):
+        def generate(self, query, contexts, memory, tool_result="", thinking_mode=None):
             raise LLMConnectionError("connection failed")
 
     db = Database(str(tmp_path / "connection-error.db"))

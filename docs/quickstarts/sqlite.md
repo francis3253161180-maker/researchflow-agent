@@ -87,7 +87,7 @@ erDiagram
 - `ON DELETE CASCADE`：删除 document 时自动删除 chunks；
 - 索引：用额外空间加速过滤、连接和排序，不是越多越好。
 
-ResearchFlow 的 `messages`、`runs` 通过 `session_id` 形成业务关联，但没有声明 sessions 主表/外键，这是 V1 的简化。
+ResearchFlow 通过 `sessions` 主表保存会话元数据；`messages` 与 `runs` 使用 `session_id` 形成业务关联。`runs` 还持久化每轮回答的 citations、thinking mode、事件与错误，供网页在刷新后恢复完整 turn。V1 仍未把这些业务表当作 LangGraph checkpoint，不能从任意 graph super-step 恢复。
 
 ## 4. CRUD 与高频 SQL
 

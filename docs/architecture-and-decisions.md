@@ -16,13 +16,13 @@ ResearchFlow 将这些要求拆成可观察、可测试的组件：文档解析�
 
 | 组件 | 代码位置 | 职责 | 有意不做的事 |
 | --- | --- | --- | --- |
-| FastAPI | `app/main.py` | 文件上传、聊天、指标与 run 查询 API；可选 API Key | 不承担复杂业务编排 |
+| FastAPI | `app/main.py` | 文件上传、聊天、会话/turn 恢复、指标与 run 查询 API；可选 API Key | 不承担复杂业务编排 |
 | Ingestion | `app/ingestion.py` | 解析 PDF/DOCX/MD/TXT，保留页码/小节元数据 | 不把扫描件 PDF 伪装成可靠可解析文本 |
 | Retrieval | `app/retrieval.py` | 分块、词法检索、向量检索、RRF 融合 | 不在 V1 引入独立向量数据库 |
 | LangGraph | `app/graph.py` | 显式状态流转、条件路由、最多一次检索重试 | 不把每个问题都拆成多 Agent |
-| LLM | `app/llm.py` | 离线确定性回答或 OpenAI-compatible / DeepSeek 生成 | 不将密钥写进仓库或前端 |
-| SQLite | `app/db.py` | 保存文档、分块、消息、事件、错误类型和延迟 | 不作为高并发生产数据库 |
-| Web UI | `app/static/` | 上传、提问、展示来源和可展开的轨迹 | 不取代完整运营后台 |
+| LLM | `app/llm.py` | 离线确定性回答或 OpenAI-compatible / DeepSeek 生成；单轮可覆盖 thinking mode | 不将密钥或内部 reasoning 写进仓库或前端 |
+| SQLite | `app/db.py` | 保存文档、分块、会话、turn、消息、引用、事件、错误类型和延迟 | 不作为高并发生产数据库 |
+| Web UI | `app/static/` | 会话切换、上传、多轮提问、逐轮来源和可展开轨迹 | 不取代完整运营后台 |
 
 ## 3. 一次请求的执行流程
 
@@ -36,7 +36,7 @@ sequenceDiagram
     participant L as LLM / Offline Answerer
     participant D as SQLite
 
-    U->>A: POST /api/chat
+    U->>A: POST /api/chat (session_id, thinking_mode)
     A->>G: create run + initial state
     G->>G: plan and route
     alt 知识型问题且语料非空
@@ -54,7 +54,7 @@ sequenceDiagram
     opt RAG evidence invalid and retry_count = 0
         G->>R: expand query and retry once
     end
-    G->>D: persist messages, events, errors, latency
+    G->>D: persist session, turn, messages, citations, events, errors, latency
     D-->>A: run id and trace
     A-->>U: answer, citations, verification, run id
 ```
@@ -64,6 +64,8 @@ sequenceDiagram
 - `plan` 只选择知识检索、计算工具或空语料处理，不让模型任意调用本地能力。
 - 知识型回答必须带有检索证据及 `[n]` 引用；校验失败时只允许一次扩展查询，避免无限循环。
 - 运行事件、错误类型和延迟写入 SQLite。对外只返回脱敏后的异常类别，避免意外暴露密钥、路径或上游响应内容。
+- 一个 `session_id` 是一段对话；一次用户提交及其有限重试对应一个 `run_id`。网页恢复的是同一会话下按时间排序的 runs，不会把不同会话混在一个聊天记录中。
+- `thinking_mode` 是单轮生成策略：`disabled` 为快速回答，`enabled` 为 DeepSeek 深度思考；只影响本轮模型生成请求，不改变检索算法，也不展示内部 reasoning。
 - 文档内容是**不可信证据**而不是系统指令；它会进入检索上下文，但不应改变系统层行为。
 
 ## 4. 检索链路
@@ -101,7 +103,7 @@ V1 的词法检索与向量检索各有价值：前者对专业术语、文件�
 
 ## 6. 已验证的内容与验证边界
 
-- `pytest` 覆盖 18 项单元、API 与 MCP 端到端测试，包括上传/删除、页码元数据、引用校验、异常脱敏、轨迹持久化以及 stdio 工具发现/调用。
+- `pytest` 覆盖 45 项单元、API 与 MCP 端到端测试，包括上传/删除、页码元数据、引用校验、会话/turn 恢复、per-run thinking mode、异常脱敏、轨迹持久化以及 stdio 工具发现/调用。
 - `scripts/run_eval.py` 有 8 条受控回归样例，并已在 hash 和 FastEmbed 两种后端下跑通检索命中、引用生成与校验。
 - GitHub Actions 在 push/PR 时执行测试和 Docker 镜像构建。
 

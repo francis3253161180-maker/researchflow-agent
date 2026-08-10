@@ -44,8 +44,8 @@ class ChatRequest(BaseModel):
 `ResearchFlowService.chat`：
 
 ```text
-生成或复用 session_id
-  -> initial_state(session_id, query)
+生成或复用 session_id，并确定本轮 thinking_mode
+  -> initial_state(session_id, query, thinking_mode)
   -> graph.invoke(..., recursion_limit=12)
 ```
 
@@ -59,6 +59,7 @@ class ChatRequest(BaseModel):
 | --- | --- |
 | `run_id` | 一次运行的唯一标识 |
 | `session_id` | 多轮消息所属会话 |
+| `thinking_mode` | 本轮 DeepSeek 生成策略：`disabled` / `enabled` |
 | `query` | 原始用户问题 |
 | `route` | `rag`、`tool` 或 `direct` |
 | `plan` | 面向 UI/轨迹的步骤说明 |
@@ -105,7 +106,7 @@ class ChatRequest(BaseModel):
 
 ## 8. answer 节点
 
-回答节点读取当前 session 最近 6 条历史消息。两种后端：
+回答节点读取当前 session 最近 6 条历史消息。网页可为本轮选择快速回答或深度思考，参数只传给当前模型调用，不修改服务全局配置。两种后端：
 
 - 配置模型：调用 OpenAI-compatible `/chat/completions`，temperature 为 0.1；
 - 未配置模型：使用确定性的离线回答器，把前三条证据截取为引用摘要。
@@ -184,8 +185,9 @@ SQLite 表：
 
 - `documents`：原始文档记录；
 - `chunks`：文本块、向量 JSON、页码和分节；
+- `sessions`：会话标题、创建与更新时间；
 - `messages`：会话消息；
-- `runs`：一次 Agent 运行及轨迹。
+- `runs`：一次 Agent 运行、citations、thinking mode 及轨迹。
 
 每次连接启用 WAL 和外键。context manager 成功时提交、异常时回滚，删除 document 会通过外键级联删除 chunks。
 

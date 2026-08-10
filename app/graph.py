@@ -17,6 +17,7 @@ class AgentState(TypedDict, total=False):
     run_id: str
     session_id: str
     query: str
+    thinking_mode: str
     document_ids: list[str] | None
     route: str
     plan: list[str]
@@ -89,7 +90,9 @@ def build_graph(db: Database, retriever: HybridRetriever, llm: LLMClient, retrie
         memory = [] if state.get("document_ids") is not None else db.get_messages(state["session_id"], limit=6)
         contexts = state.get("retrieved", [])
         try:
-            answer = llm.generate(state["query"], contexts, memory, state.get("tool_result", ""))
+            answer = llm.generate(
+                state["query"], contexts, memory, state.get("tool_result", ""), state.get("thinking_mode")
+            )
             errors = state.get("errors", [])
         except Exception as exc:
             answer = (
@@ -111,6 +114,7 @@ def build_graph(db: Database, retriever: HybridRetriever, llm: LLMClient, retrie
             "answer": answer,
             "citations": citations,
             "errors": errors,
+            "thinking_mode": state.get("thinking_mode", "disabled"),
             "events": event(state, "answer", f"citations={len(citations)}"),
         }
 
@@ -150,6 +154,8 @@ def build_graph(db: Database, retriever: HybridRetriever, llm: LLMClient, retrie
                 "latency_ms": latency_ms,
                 "events": events,
                 "errors": state.get("errors", []),
+                "citations": state.get("citations", []),
+                "thinking_mode": state.get("thinking_mode", "disabled"),
             }
         )
         return {"latency_ms": latency_ms, "events": events}
@@ -183,11 +189,13 @@ def initial_state(
     session_id: str,
     query: str,
     document_ids: list[str] | None = None,
+    thinking_mode: str = "disabled",
 ) -> AgentState:
     return {
         "run_id": f"run_{uuid4().hex[:12]}",
         "session_id": session_id,
         "query": query,
+        "thinking_mode": thinking_mode,
         "document_ids": document_ids,
         "retry_count": 0,
         "started_at": time.perf_counter(),

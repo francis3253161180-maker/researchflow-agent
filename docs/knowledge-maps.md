@@ -194,19 +194,21 @@ flowchart TB
     TX[Transaction]
     DOC[Documents]
     CHUNK[Chunks]
+    SESSION[Sessions]
     MSG[Messages]
-    RUN[Runs and events]
+    RUN[Runs: answer, mode and events]
+    CITE[Persisted citations]
     WAL[WAL journal]
     COMMIT[Commit or rollback]
 
     SERVICE --> CONNECT --> TX
     TX --> DOC --> CHUNK
-    TX --> MSG
-    TX --> RUN
+    TX --> SESSION --> MSG
+    SESSION --> RUN --> CITE
     TX --> WAL --> COMMIT
 ```
 
-关系：消息/运行轨迹是业务持久化，不是 LangGraph checkpoint。
+关系：一个 session 包含多轮 run；每个 run 持久化回答、citations、thinking mode 与轨迹，网页刷新后可恢复完整对话。它们仍是业务持久化，不是 LangGraph checkpoint。
 
 ## 图 10：LLM、Prompt 与上下文
 
@@ -217,6 +219,7 @@ flowchart TB
     MEMORY[Recent messages]
     CONTEXT[Retrieved evidence]
     TOOL[Tool result]
+    THINKING[Per-run thinking mode]
     BUDGET[Context budget]
     REQUEST[HTTPX request]
     MODEL[LLM provider]
@@ -228,9 +231,10 @@ flowchart TB
     CONTEXT --> BUDGET
     TOOL --> BUDGET
     BUDGET --> REQUEST --> MODEL --> OUTPUT
+    THINKING --> REQUEST
 ```
 
-关系：上下文由多种来源竞争 token 预算；文档内容是证据，不应覆盖系统约束。
+关系：上下文由多种来源竞争 token 预算；文档内容是证据，不应覆盖系统约束。thinking mode 只控制本轮 DeepSeek 生成策略，不改变检索或暴露内部 reasoning。
 
 ## 图 11：测试、部署与可观测闭环
 

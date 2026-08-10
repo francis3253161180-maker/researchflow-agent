@@ -17,15 +17,15 @@ ResearchFlow 不是只调用一次模型的聊天壳。它把文档解析、知�
 - **CPU 语义检索**：可选 FastEmbed 多语种 ONNX embedding，不需要 GPU；默认哈希向量便于离线测试与快速启动。
 - **LangGraph 编排**：`plan → retrieve / tool → answer → verify → persist`；数学表达式走受限计算工具，知识问答走 RAG。
 - **引用校验与重试**：RAG 回答必须有检索证据和 `[1]` 形式的引用标记；缺失时扩展查询并至多重试一次。
-- **可观测与会话记忆**：SQLite 持久化文档、分块、会话消息、路由、节点事件、校验状态、脱敏错误类型和延迟；网页可展开查看本次运行轨迹。
+- **可观测与多轮会话**：SQLite 持久化会话、每轮 run、消息、引用、路由、节点事件、校验状态、回答模式、脱敏错误类型和延迟；网页支持新建/恢复会话，并逐轮展开证据和轨迹。
 - **安全边界**：上传文档被视为不可信证据而非指令；可选 `X-API-Key` 保护 `/api/*`；上传大小受服务端限制。
-- **可部署与可验证**：提供网页、OpenAPI、Docker Compose、33 项测试和多层离线回归评测。
+- **可部署与可验证**：提供多轮网页、OpenAPI、Docker Compose、45 项测试和多层离线回归评测。
 
 ## 架构
 
 ```mermaid
 flowchart TD
-    UI[Web UI / REST API] --> PLAN[Plan and Route]
+    UI[Multi-turn Web UI / REST API] --> PLAN[Plan and Route]
     PLAN --> RAG[Knowledge query]
     PLAN --> TOOL[Calculation query]
     PLAN --> DIRECT[Empty corpus]
@@ -34,7 +34,7 @@ flowchart TD
     TOOL --> ANSWER
     DIRECT --> ANSWER
     ANSWER --> VERIFY[Verify evidence]
-    VERIFY -->|verified or stopped| PERSIST[(SQLite<br/>messages and traces)]
+    VERIFY -->|verified or stopped| PERSIST[(SQLite<br/>sessions, runs, citations and traces)]
     VERIFY -->|RAG retry once| RAG
 ```
 
@@ -49,7 +49,7 @@ python -m pip install -e ".[dev]"
 uvicorn app.main:app --reload
 ```
 
-打开 [http://127.0.0.1:8000](http://127.0.0.1:8000)，或查看 [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)。网页可一次多选 PDF / DOCX / XLSX / Markdown / TXT；选择后会自动逐个上传和解析，并汇总成功数、失败原因与分块数。随后可直接提问，查看带来源/页码或工作表行范围的引用。
+打开 [http://127.0.0.1:8000](http://127.0.0.1:8000)，或查看 [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)。网页可一次多选 PDF / DOCX / XLSX / Markdown / TXT；选择后会自动逐个上传和解析，并汇总成功数、失败原因与分块数。随后可新建或恢复会话，在同一 `session_id` 内连续追问；每轮均保留 Markdown 回答、来源/页码或工作表行范围引用、route 和可展开轨迹。
 
 在 Windows 上，已完成一次依赖安装后，也可以直接双击项目根目录的 `ResearchFlow.bat` 启动服务并打开网页。
 
@@ -69,8 +69,8 @@ FASTEMBED_MODEL=sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2
 # 设置后会默认使用 https://api.deepseek.com 与 deepseek-v4-flash
 DEEPSEEK_API_KEY=your_key_here
 
-# DeepSeek V4 默认关闭思考模式，以降低 RAG 问答的延迟并避免裁判型 JSON 输出被 reasoning 占满。
-# 需要复杂推理时可改为 enabled。
+# DeepSeek V4 默认关闭思考模式，以降低 RAG 问答的延迟。
+# 该值是服务默认值；网页可为单轮请求选择快速回答或深度思考，不会修改全局配置。
 LLM_THINKING=disabled
 
 # 可选：只对 Hybrid 检索的 Top-N 候选块执行通用 cross-encoder 重排。
@@ -106,6 +106,8 @@ docker compose up --build
 | `POST` | `/api/documents/upload` | 上传 PDF/DOCX/XLSX/MD/TXT 并解析 |
 | `GET` / `DELETE` | `/api/documents` | 查看或删除知识库文档 |
 | `POST` | `/api/chat` | 执行一次 Agent 问答 |
+| `POST` / `GET` | `/api/sessions` | 新建或列出多轮会话 |
+| `GET` | `/api/sessions/{session_id}/turns` | 恢复会话中的逐轮问答、引用和轨迹 |
 | `GET` | `/api/runs/{run_id}` | 回看路由、延迟、节点轨迹和校验状态 |
 | `GET` | `/api/metrics` | 查看文档分块、运行次数、平均延迟和校验率 |
 
@@ -139,7 +141,7 @@ python scripts/run_eval.py --embedding-provider hash
 python scripts/run_eval.py --embedding-provider fastembed
 ```
 
-当前本机结果：18 项测试全部通过；其中包含 MCP `stdio` 客户端与独立 Server 的端到端握手、工具发现和调用。8 条**受控回归样例**在两种向量后端下均完成检索命中、引用生成和校验（8/8）。GitHub Actions 会在 push/PR 时运行测试并从 Dockerfile 构建镜像。该数据集验证的是项目链路和回归行为，样例内容来自本项目功能说明，**不代表真实企业语料上的准确率、召回率或幻觉率**。
+当前本机结果：45 项测试全部通过；其中包含会话恢复、逐轮 citations、per-run DeepSeek thinking mode、MCP `stdio` 客户端与独立 Server 的端到端握手、工具发现和调用。8 条**受控回归样例**在两种向量后端下均完成检索命中、引用生成和校验（8/8）。GitHub Actions 会在 push/PR 时运行测试并从 Dockerfile 构建镜像。该数据集验证的是项目链路和回归行为，样例内容来自本项目功能说明，**不代表真实企业语料上的准确率、召回率或幻觉率**。
 
 ### 小规模论文检索评测
 
@@ -192,14 +194,14 @@ FastAPI、LangGraph、SQLite 与配套框架的核心入门材料统一放在 [�
 - PDF 导入依赖文本层提取；扫描版 PDF、复杂双栏排版或图表中的文字需要在后续接入 OCR/版面解析，而不应被误称为“所有 PDF 均可可靠解析”。
 - XLSX 导入以只读方式序列化工作表行；公式以公式文本保留，不执行公式、宏或外部连接，因此不是电子表格自动化能力。
 - V1 的检索器已抽象为 provider，可替换为远程 embedding 服务；Reranker 暂未默认启用，避免一开始引入大模型下载、GPU 依赖与不可控延迟。
-- LangGraph 负责显式状态流转、条件边和重试；下一阶段可加入持久化 checkpointer、人工审阅中断、检索质量评测与前端流式输出。
+- LangGraph 负责显式状态流转、条件边和重试；SQLite 的会话/turn 持久化不是图级 checkpointer。下一阶段可加入受控 Query Rewrite、逐节点 duration、检索质量评测与前端流式输出。
 
 ## 面试时如何讲这个项目
 
 1. **问题**：普通 RAG demo 缺少证据追溯、失败定位和可重复验证。
 2. **方案**：将 Agent 拆成检索/工具路由、引用约束、校验重试和 SQLite 运行轨迹，并以 LangGraph 显式编排。
 3. **工程取舍**：默认离线保证测试和演示可复现；可选 FastEmbed 在 CPU 上完成语义检索；真实 LLM 通过环境变量注入，密钥不入库。
-4. **证据**：上传、引用页码/分节、API 防护、33 项测试、MCP 端到端调用和受控回归评测均有对应代码；后续需要补齐来源范围控制与更严格的引用忠实度验证。
+4. **证据**：上传、引用页码/分节、会话恢复、per-run thinking mode、API 防护、45 项测试、MCP 端到端调用和受控回归评测均有对应代码；后续需要补齐 Query Rewrite、逐节点耗时与更严格的引用忠实度验证。
 
 ## 深入阅读
 

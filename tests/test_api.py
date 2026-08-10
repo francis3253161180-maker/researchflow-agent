@@ -33,10 +33,46 @@ def test_end_to_end_api(tmp_path):
         payload = answered.json()
         assert payload["verified"] is True
         assert payload["citations"]
+        assert payload["thinking_mode"] == "disabled"
 
         run = client.get(f"/api/runs/{payload['run_id']}")
         assert run.status_code == 200
         assert run.json()["route"] == "rag"
+        assert run.json()["citations"] == payload["citations"]
+
+
+def test_sessions_restore_turns_and_per_run_thinking_mode(tmp_path):
+    app = create_app(Settings(db_path=str(tmp_path / "sessions.db")))
+    with TestClient(app) as client:
+        created_session = client.post("/api/sessions")
+        assert created_session.status_code == 200
+        session_id = created_session.json()["id"]
+
+        client.post(
+            "/api/documents",
+            json={"title": "会话证据", "source": "unit-test", "content": "Holo 在 GSM8K 上的结果来自经过引用校验的实验表。"},
+        )
+        first = client.post(
+            "/api/chat",
+            json={"session_id": session_id, "query": "Holo 的结果来自哪里？", "thinking_mode": "enabled"},
+        )
+        second = client.post(
+            "/api/chat",
+            json={"session_id": session_id, "query": "它是否经过引用校验？", "thinking_mode": "disabled"},
+        )
+        assert first.status_code == 200 and second.status_code == 200
+
+        sessions = client.get("/api/sessions")
+        assert sessions.status_code == 200
+        saved = next(item for item in sessions.json() if item["id"] == session_id)
+        assert saved["runs"] == 2
+        assert saved["title"].startswith("Holo")
+
+        turns = client.get(f"/api/sessions/{session_id}/turns")
+        assert turns.status_code == 200
+        assert [turn["query"] for turn in turns.json()] == ["Holo 的结果来自哪里？", "它是否经过引用校验？"]
+        assert [turn["thinking_mode"] for turn in turns.json()] == ["enabled", "disabled"]
+        assert all("citations" in turn for turn in turns.json())
 
 
 def test_upload_lists_and_deletes_document(tmp_path):
@@ -160,7 +196,7 @@ def test_web_ui_exposes_upload_and_citation_surfaces(tmp_path):
         page = client.get("/")
         assert page.status_code == 200
         assert "uploadSelectedFiles" in page.text
-        assert "可多选；选择后自动上传并解析" in page.text
+        assert "选择 PDF / DOCX / XLSX / Markdown / TXT（可多选）" in page.text
         assert "multiple" in page.text
         assert "检索范围" in page.text
         assert "scope-document" in page.text
@@ -169,5 +205,10 @@ def test_web_ui_exposes_upload_and_citation_surfaces(tmp_path):
         assert "renderMarkdown" in page.text
         assert "Shift + Enter" in page.text
         assert "html.push('<hr>')" in page.text
+        assert "newSession" in page.text
+        assert "/api/sessions/${activeSessionId}/turns" in page.text
+        assert "thinking-mode" in page.text
+        assert "快速回答" in page.text
+        assert "深度思考" in page.text
         assert "page-aware citations" not in page.text  # UI stays Chinese-facing
         assert "选择 PDF / DOCX / XLSX / Markdown / TXT" in page.text

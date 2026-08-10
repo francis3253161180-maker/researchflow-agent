@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -55,6 +55,7 @@ class ChatRequest(BaseModel):
     # an explicit evidence boundary chosen by the caller/UI, not an attempt to
     # infer source restrictions from natural-language wording.
     document_ids: list[str] | None = Field(default=None, max_length=100)
+    thinking_mode: Literal["enabled", "disabled"] | None = None
 
 
 class Citation(BaseModel):
@@ -79,6 +80,7 @@ class ChatResponse(BaseModel):
     latency_ms: float
     events: list[dict[str, Any]]
     errors: list[str] = []
+    thinking_mode: Literal["enabled", "disabled"]
 
 
 class SessionMessage(BaseModel):
@@ -97,4 +99,14 @@ class RunDetail(BaseModel):
     latency_ms: float
     events: list[dict[str, Any]]
     errors: list[str]
+    citations: list[Citation] = []
+    thinking_mode: Literal["enabled", "disabled"] = "disabled"
     created_at: str
+
+
+class SessionSummary(BaseModel):
+    id: str
+    title: str
+    created_at: str
+    updated_at: str
+    runs: int

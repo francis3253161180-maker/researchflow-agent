@@ -20,6 +20,7 @@ from app.schemas import (
     MetricsResponse,
     RerankerStatus,
     RunDetail,
+    SessionSummary,
     SessionMessage,
 )
 from app.service import ResearchFlowService
@@ -100,7 +101,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.post("/api/chat", response_model=ChatResponse)
     def chat(payload: ChatRequest, _: None = Depends(require_api_key)):
         service: ResearchFlowService = app.state.service
-        result = service.chat(payload.query, payload.session_id, payload.document_ids)
+        result = service.chat(payload.query, payload.session_id, payload.document_ids, payload.thinking_mode)
         return ChatResponse(
             run_id=result["run_id"],
             session_id=result["session_id"],
@@ -111,12 +112,28 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             latency_ms=result["latency_ms"],
             events=result.get("events", []),
             errors=result.get("errors", []),
+            thinking_mode=result.get("thinking_mode", "disabled"),
         )
+
+    @app.post("/api/sessions", response_model=SessionSummary)
+    def create_session(_: None = Depends(require_api_key)):
+        service: ResearchFlowService = app.state.service
+        return SessionSummary(**service.db.create_session())
+
+    @app.get("/api/sessions", response_model=list[SessionSummary])
+    def list_sessions(_: None = Depends(require_api_key)):
+        service: ResearchFlowService = app.state.service
+        return [SessionSummary(**session) for session in service.db.list_sessions()]
 
     @app.get("/api/sessions/{session_id}", response_model=list[SessionMessage])
     def session(session_id: str, _: None = Depends(require_api_key)):
         service: ResearchFlowService = app.state.service
         return service.db.get_messages(session_id)
+
+    @app.get("/api/sessions/{session_id}/turns", response_model=list[RunDetail])
+    def session_turns(session_id: str, _: None = Depends(require_api_key)):
+        service: ResearchFlowService = app.state.service
+        return [RunDetail(**run) for run in service.db.get_session_turns(session_id)]
 
     @app.get("/api/runs/{run_id}", response_model=RunDetail)
     def run_detail(run_id: str, _: None = Depends(require_api_key)):

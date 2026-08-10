@@ -97,10 +97,13 @@ class ResearchFlowService:
         query: str,
         session_id: str | None = None,
         document_ids: list[str] | None = None,
+        thinking_mode: str | None = None,
     ) -> dict:
         session_id = session_id or f"ses_{uuid4().hex[:12]}"
+        effective_thinking = thinking_mode if thinking_mode in {"enabled", "disabled"} else self.llm.thinking
+        self.db.ensure_session(session_id)
         result = self.graph.invoke(
-            initial_state(session_id, query, document_ids=document_ids),
+            initial_state(session_id, query, document_ids=document_ids, thinking_mode=effective_thinking),
             {"recursion_limit": 12},
         )
         return result

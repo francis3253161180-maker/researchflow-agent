@@ -27,12 +27,15 @@ class LLMClient:
         contexts: list[dict],
         memory: list[dict[str, str]],
         tool_result: str = "",
+        thinking_mode: str | None = None,
     ) -> str:
         if self.configured:
-            return self._remote_generate(query, contexts, memory, tool_result)
+            return self._remote_generate(query, contexts, memory, tool_result, thinking_mode)
         return self._offline_generate(query, contexts, tool_result)
 
-    def _remote_generate(self, query: str, contexts: list[dict], memory: list[dict], tool_result: str) -> str:
+    def _remote_generate(
+        self, query: str, contexts: list[dict], memory: list[dict], tool_result: str, thinking_mode: str | None
+    ) -> str:
         context_text = "\n\n".join(
             f"[{index}] {item['title']}\n{item['content']}"
             for index, item in enumerate(contexts, start=1)
@@ -56,7 +59,7 @@ class LLMClient:
             "messages": messages,
             "temperature": 0.1,
             "max_tokens": 1200,
-            "thinking": {"type": self.thinking},
+            "thinking": {"type": thinking_mode if thinking_mode in {"enabled", "disabled"} else self.thinking},
         }
         last_error: Exception | None = None
         for attempt in range(3):
