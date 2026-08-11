@@ -27,7 +27,7 @@
 
 周日结束前，应当能够做到：
 
-- 不看稿画出 `plan -> rewrite -> retrieve/tool/direct -> answer -> verify -> persist`；
+- 不看稿画出 `route -> rewrite -> retrieve/tool/direct -> answer -> verify -> persist`；
 - 指出一次请求在 `main.py`、`service.py`、`graph.py`、`retrieval.py`、`llm.py`、`db.py` 中如何流动；
 - 解释 BM25、向量检索和 RRF 各自解决什么问题；
 - 独立跑通上传、问答、引用、运行轨迹、测试和回归评测；
@@ -82,7 +82,7 @@ HTTP request
   -> ResearchFlowService.chat
   -> initial_state
   -> compiled LangGraph.invoke
-  -> plan route
+  -> route
   -> retrieve/tool/direct
   -> answer
   -> verify
@@ -141,7 +141,7 @@ RRF(d) = 1 / (60 + rank_lexical(d))
 
 先完成 [失败案例与调试](failure-cases-and-debugging.md) 中前三个案例，再从 [动手练习](hands-on-exercises.md) 选择一项 Level 1 或 Level 2 任务。
 
-推荐最小修改：给 `plan_node` 新增一条路由回归测试，或给 PDF/Markdown 元数据新增一个断言。完成后运行：
+推荐最小修改：给 `route_node` 新增一条路由回归测试，或给 PDF/Markdown 元数据新增一个断言。完成后运行：
 
 ```powershell
 python -m pytest
@@ -165,7 +165,7 @@ git diff
 
 ### 90 秒版本
 
-> 普通 RAG demo 往往只能生成回答，缺少证据追溯、失败定位和可重复验证。我把系统拆成文档解析、混合检索、Agent 状态流、受限回答、Query Rewrite、结构化引用校验和运行轨迹。FastAPI 负责服务边界；LangGraph 负责 `plan -> rewrite -> retrieve/tool -> answer -> verify -> persist`：Rewrite 只使用近期已验证的用户 + 助手 turn 解决指代，历史回答不是证据；Verify 固定先判无候选、再判候选不相关、最后才判缺引/错引。无候选或候选不相关时仅做一次中性扩展改写/重检索，引用缺失或越界时用不同约束只在同一证据上重答一次。网页通过 SSE 实时反馈当前节点，但只有 Verify 后的最终答案会进入聊天记录。PDF 保留页码与可跨页继承的标题栈，DOCX/Markdown 保留完整标题路径；BM25 和向量结果通过 RRF 融合。SQLite 保存会话、逐轮 citations 和节点事件，网页可恢复同一会话的全部 runs，并可为单轮选择 DeepSeek 快速回答或深度思考；首轮结束后会在模型可用时生成简短会话标题。项目还有独立 MCP Server，向外部 Host 提供检索、引用回查和计算。当前有 61 项测试和 8 条受控回归样例；这些证明链路可回归，但不代表真实业务准确率。
+> 普通 RAG demo 往往只能生成回答，缺少证据追溯、失败定位和可重复验证。我把系统拆成文档解析、混合检索、Agent 状态流、受限回答、Query Rewrite、结构化引用校验和运行轨迹。FastAPI 负责服务边界；LangGraph 负责 `route -> rewrite -> retrieve/tool -> answer -> verify -> persist`：`route` 是规则式路径选择，不是 LLM planner。Rewrite 只使用近期已验证的用户 + 助手 turn 解决指代，历史回答不是证据；Verify 固定先判无候选、再判候选不相关、最后才判缺引/错引。无候选或候选不相关时仅做一次中性扩展改写/重检索，引用缺失或越界时用不同约束只在同一证据上重答一次。网页通过 SSE 实时反馈当前节点，但只有 Verify 后的最终答案会进入聊天记录。PDF 保留页码与可跨页继承的标题栈，DOCX/Markdown 保留完整标题路径；BM25 和向量结果通过 RRF 融合。SQLite 保存会话、逐轮 citations 和节点事件，网页可恢复同一会话的全部 runs，并可为单轮选择 DeepSeek 快速回答或深度思考；首轮结束后会在模型可用时生成简短会话标题。项目还有独立 MCP Server，向外部 Host 提供检索、引用回查和计算。当前有 61 项测试和 8 条受控回归样例；这些证明链路可回归，但不代表真实业务准确率。
 
 ### 5 分钟版本结构
 

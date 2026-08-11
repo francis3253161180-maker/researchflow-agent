@@ -101,7 +101,7 @@ flowchart TB
 
 ```mermaid
 flowchart TB
-    PLAN[Plan and route]
+    ROUTE[Rule-based route]
     REWRITE[Query rewrite]
     RAG[Retrieve]
     TOOL[Safe tool]
@@ -112,9 +112,9 @@ flowchart TB
     RETRY_ANSWER[Same-evidence answer once]
     PERSIST[Persist messages and trace]
 
-    PLAN -->|knowledge| REWRITE --> RAG --> ANSWER
-    PLAN -->|math| TOOL --> ANSWER
-    PLAN -->|empty corpus| DIRECT --> ANSWER
+    ROUTE -->|knowledge| REWRITE --> RAG --> ANSWER
+    ROUTE -->|math| TOOL --> ANSWER
+    ROUTE -->|empty corpus| DIRECT --> ANSWER
     ANSWER --> VERIFY
     VERIFY -->|no evidence and first failure| RETRY_RETRIEVE --> REWRITE
     VERIFY -->|citation issue and first failure| RETRY_ANSWER --> ANSWER

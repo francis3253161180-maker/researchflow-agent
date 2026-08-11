@@ -33,9 +33,9 @@ flowchart TB
 | 对象 | 含义 | ResearchFlow |
 | --- | --- | --- |
 | State | 节点共享的数据 schema | `AgentState(TypedDict)` |
-| Node | 读取 state、返回局部更新的函数 | plan/retrieve/tool/answer/verify/persist |
+| Node | 读取 state、返回局部更新的函数 | route/retrieve/tool/answer/verify/persist |
 | Edge | 确定固定的下一步 | retrieve → answer |
-| Conditional Edge | 根据 state 动态选择下一步 | plan 路由、verify 重试 |
+| Conditional Edge | 根据 state 动态选择下一步 | route 路由、verify 重试 |
 | Compiled Graph | 可 invoke/stream 的运行对象 | `build_graph(...).compile()` |
 
 `START` 和 `END` 是图的入口和出口，不是业务节点。
@@ -102,7 +102,7 @@ ResearchFlow 没有为 `events` 声明 reducer，因此每个节点显式返回�
 ```mermaid
 flowchart TB
     START([START])
-    PLAN[plan]
+    ROUTE[route]
     REWRITE[rewrite]
     RETRIEVE[retrieve]
     TOOL[tool]
@@ -111,10 +111,10 @@ flowchart TB
     PERSIST[persist]
     ENDNODE([END])
 
-    START --> PLAN
-    PLAN -->|knowledge query and corpus exists| REWRITE --> RETRIEVE
-    PLAN -->|math expression| TOOL
-    PLAN -->|empty corpus| ANSWER
+    START --> ROUTE
+    ROUTE -->|knowledge query and corpus exists| REWRITE --> RETRIEVE
+    ROUTE -->|math expression| TOOL
+    ROUTE -->|empty corpus| ANSWER
     RETRIEVE --> ANSWER
     TOOL --> ANSWER
     ANSWER --> VERIFY
@@ -126,7 +126,7 @@ flowchart TB
 
 各节点职责：
 
-- `plan`：规则路由，不是 LLM planner；
+- `route`：规则路由，不是 LLM planner；
 - `rewrite`：只用同会话最近 3 个、已验证的用户 + 助手 turn 做指代消解；历史回答只作上下文，不作证据，失败时回退原问题；
 - `retrieve`：top-4 混合检索；`no_evidence` 或模型显式返回的 `evidence_not_relevant` 首次失败时，以失败原因为约束进行中性扩展 Rewrite 后重新检索；`evidence_not_relevant` 还会参考前次 query 与有界候选诊断；
 - `tool`：安全数学计算；

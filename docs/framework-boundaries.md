@@ -93,7 +93,7 @@ sequenceDiagram
     C-->>G: tool result
 ```
 
-ResearchFlow 的 LangGraph 主链路仍直接调用进程内 `calculate()`；但项目同时提供独立 MCP Server，把检索、精确引用回查、计算和文档清单开放给外部 Host。MCP 的价值是跨进程、跨 Host 的标准发现、参数 schema 和权限边界，而不是取代 LangGraph planner。
+ResearchFlow 的 LangGraph 主链路仍直接调用进程内 `calculate()`；但项目同时提供独立 MCP Server，把检索、精确引用回查、计算和文档清单开放给外部 Host。MCP 的价值是跨进程、跨 Host 的标准发现、参数 schema 和权限边界，而不是取代 LangGraph 的规则路由。
 
 对于有 Markdown 标题层级的来源，检索层让每个 chunk 继承其最近的标题上下文；对 PDF、DOCX、TXT 则采用格式无关的段落/自然换行/句末优先分块，必要时才使用重叠滑窗。中英跨语言语义匹配应由多语种 embedding 或查询重写承担，而不是依赖某个来源的字段名或维护关键词映射表。
 
@@ -154,7 +154,7 @@ flowchart TB
 
 ## 10. 面试表达
 
-> ResearchFlow 使用 FastAPI 提供 Web / REST API，以 LangGraph 显式编排状态和条件重试；模型、检索和核心工具采用轻量自定义实现，没有为了堆框架强依赖 LangChain。同时我实现了独立 MCP Server，把混合检索、按 chunk 精确回查引用和安全计算以标准 Tools / Resource 提供给外部 Agent Host。MCP 不替代 LangGraph 的规划能力，而是解决跨进程工具发现、输入 schema 和权限边界。Dify/Coze 适合快速原型，而这个项目重点证明代码级可测试、可部署和可观测能力。
+> ResearchFlow 使用 FastAPI 提供 Web / REST API，以 LangGraph 显式编排状态和条件重试；模型、检索和核心工具采用轻量自定义实现，没有为了堆框架强依赖 LangChain。同时我实现了独立 MCP Server，把混合检索、按 chunk 精确回查引用和安全计算以标准 Tools / Resource 提供给外部 Agent Host。MCP 不替代 LangGraph 的规则路由与状态控制，而是解决跨进程工具发现、输入 schema 和权限边界。Dify/Coze 适合快速原型，而这个项目重点证明代码级可测试、可部署和可观测能力。
 
 ## 官方入口
 

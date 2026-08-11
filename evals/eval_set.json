@@ -19,9 +19,9 @@
   },
   {
     "title": "Agent 编排",
-    "content": "The LangGraph workflow is plan to retrieve or tool to answer to verify to persist. The plan node routes calculation expressions to a safe calculator and knowledge questions to retrieval.",
+    "content": "The LangGraph workflow is route to retrieve or tool to answer to verify to persist. The route node sends calculation expressions to a safe calculator and knowledge questions to retrieval.",
     "question": "What routes a calculation expression to the calculator?",
-    "expected": "The plan node"
+    "expected": "The route node"
   },
   {
     "title": "引用校验",

@@ -44,7 +44,7 @@ uvicorn app.main:app --reload
 完成后画出自己的版本：
 
 ```text
-question → plan → rewrite → retrieve/tool → answer → verify → SQLite trace
+question → route → rewrite → retrieve/tool → answer → verify → SQLite trace
                          ↑                 │
                          └── retry once ────┘
 ```
@@ -74,7 +74,7 @@ python scripts/run_eval.py --embedding-provider fastembed
 - 为网页添加“查看本次节点轨迹”的折叠面板；或
 - 在 `/api/documents` 列表展示来源和创建时间；或
 - 为 PDF 跨页标题栈或 DOCX 多级 Heading 导入写一项单元测试；或
-- 改进 `plan_node` 的路由规则，并新增一个回归用例。
+- 改进 `route_node` 的路由规则，并新增一个回归用例。
 
 改完后依次执行：
 

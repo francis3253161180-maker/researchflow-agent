@@ -21,7 +21,7 @@ Agent项目的区分度常来自“失败时能否定位”，而不是正常dem
 
 **复现**：删除全部文档后提问知识型问题。
 
-**预期**：`plan` 路由到 `direct`，回答提示先导入文档或配置模型；不伪造引用。
+**预期**：`route` 路由到 `direct`，回答提示先导入文档或配置模型；不伪造引用。
 
 **检查**：`route=direct`、`citations=[]`、`verified=true`。这里verified只表示direct回答非空。
 

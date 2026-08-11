@@ -89,8 +89,8 @@
 ### 项目映射（已实现）
 
 ```text
-START -> plan
-plan -> rewrite -> retrieve | tool | answer
+START -> route
+route -> rewrite -> retrieve | tool | answer
 retrieve -> answer
 tool -> answer
 answer -> verify
@@ -98,7 +98,7 @@ verify -> retrieve | persist
 persist -> END
 ```
 
-图有六个节点：`plan`、`retrieve`、`tool`、`answer`、`verify`、`persist`。路由为规则式，RAG 只允许一次业务重试，框架 recursion limit 为 12。
+图有六个节点：`route`、`retrieve`、`tool`、`answer`、`verify`、`persist`。route 为规则式路径选择，RAG 只允许一次业务重试，框架 recursion limit 为 12。
 
 ### 高频问法
 
@@ -121,7 +121,7 @@ persist -> END
 
 ### 项目映射
 
-- 当前 `plan_node` 不是 LLM planner；
+- 当前 `route_node` 是规则路由，不是 LLM planner；
 - calculator 是本地受限工具，不使用任意 `eval`；
 - 记忆为 SQLite 最近 6 条消息；
 - 上传文档作为不可信 evidence，不允许改变 system behavior；

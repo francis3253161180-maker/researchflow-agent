@@ -24,7 +24,7 @@ class AgentState(TypedDict, total=False):
     thinking_mode: str
     document_ids: list[str] | None
     route: str
-    plan: list[str]
+    route_steps: list[str]
     retrieved: list[dict[str, Any]]
     tool_result: str
     answer: str
@@ -113,13 +113,13 @@ def strip_evidence_status_marker(answer: str) -> tuple[str, str]:
 
 
 def build_graph(db: Database, retriever: HybridRetriever, llm: LLMClient, retrieval_top_k: int = 6):
-    def plan_node(state: AgentState) -> dict[str, Any]:
+    def route_node(state: AgentState) -> dict[str, Any]:
         started = time.perf_counter()
-        emit_progress("plan", "正在判断问题类型与执行路径…")
+        emit_progress("route", "正在判断问题类型与执行路径…")
         query = state["query"].strip()
         has_math = bool(re.search(r"\d\s*[-+*/%]\s*\d", query))
         route = "tool" if has_math else ("rag" if db.chunk_count() else "direct")
-        plans = {
+        route_steps = {
             "tool": ["识别计算表达式", "执行安全计算工具", "校验并返回结果"],
             "rag": ["检索科研文档", "基于证据生成答案", "校验引用完整性"],
             "direct": ["检查知识库状态", "生成受限回答"],
@@ -128,10 +128,10 @@ def build_graph(db: Database, retriever: HybridRetriever, llm: LLMClient, retrie
         scope_mode = "explicit" if document_ids is not None else "all_documents"
         return {
             "route": route,
-            "plan": plans[route],
+            "route_steps": route_steps[route],
             "document_ids": document_ids,
             "scope_mode": scope_mode,
-            "events": event(state, "plan", f"route={route}; scope={scope_mode}", started),
+            "events": event(state, "route", f"route={route}; scope={scope_mode}", started),
         }
 
     def rewrite_node(state: AgentState) -> dict[str, Any]:
@@ -299,7 +299,7 @@ def build_graph(db: Database, retriever: HybridRetriever, llm: LLMClient, retrie
         )
         return {"latency_ms": latency_ms, "events": events}
 
-    def after_plan(state: AgentState) -> str:
+    def after_route(state: AgentState) -> str:
         return {"rag": "rewrite", "tool": "tool", "direct": "answer"}[state["route"]]
 
     def after_verify(state: AgentState) -> str:
@@ -308,15 +308,15 @@ def build_graph(db: Database, retriever: HybridRetriever, llm: LLMClient, retrie
         return "persist"
 
     graph = StateGraph(AgentState)
-    graph.add_node("plan", plan_node)
+    graph.add_node("route", route_node)
     graph.add_node("rewrite", rewrite_node)
     graph.add_node("retrieve", retrieve_node)
     graph.add_node("tool", tool_node)
     graph.add_node("answer", answer_node)
     graph.add_node("verify", verify_node)
     graph.add_node("persist", persist_node)
-    graph.add_edge(START, "plan")
-    graph.add_conditional_edges("plan", after_plan, {"rewrite": "rewrite", "tool": "tool", "answer": "answer"})
+    graph.add_edge(START, "route")
+    graph.add_conditional_edges("route", after_route, {"rewrite": "rewrite", "tool": "tool", "answer": "answer"})
     graph.add_edge("rewrite", "retrieve")
     graph.add_edge("retrieve", "answer")
     graph.add_edge("tool", "answer")

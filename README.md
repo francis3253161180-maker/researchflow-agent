@@ -15,7 +15,7 @@ ResearchFlow 不是只调用一次模型的聊天壳。它把文档解析、知�
 - **文档导入**：支持 PDF、DOCX、XLSX、Markdown、TXT；PDF 按页解析，Markdown 标题与 Excel 工作表/行范围作为分节元数据保存。
 - **混合检索**：BM25 风格词法检索与向量相似度检索经 Reciprocal Rank Fusion (RRF) 合并排序。
 - **CPU 语义检索**：可选 FastEmbed 多语种 ONNX embedding，不需要 GPU；默认哈希向量便于离线测试与快速启动。
-- **LangGraph 编排**：`plan → rewrite → retrieve / tool → answer → verify → persist`；知识问答只利用同一会话最近、已验证的用户 + 助手 turn 消解追问，历史回答不是证据；数学表达式走受限计算工具。
+- **LangGraph 编排**：`route → rewrite → retrieve / tool → answer → verify → persist`；`route` 是规则式执行路径选择，不是 LLM 规划器；知识问答只利用同一会话最近、已验证的用户 + 助手 turn 消解追问，历史回答不是证据；数学表达式走受限计算工具。
 - **结构化引用校验与受控重试**：按 `no_evidence → evidence_not_relevant → citation_missing/citation_out_of_range → citation_indices_valid` 判断；无候选或候选不相关时做一次受控 Rewrite/重检索，引用缺失与越界只在原证据上重答一次。
 - **可观测与多轮会话**：SQLite 持久化会话、每轮 run、消息、原始/检索 Query、改写原因、引用、路由、节点事件（累计/节点耗时）、校验状态、回答模式、脱敏错误类型和延迟；网页通过 SSE 实时展示 LangGraph 节点状态，最终回答经校验后一次性提交，并可在回答底部就地展开引用与运行轨迹。
 - **安全边界**：上传文档被视为不可信证据而非指令；可选 `X-API-Key` 保护 `/api/*`；上传大小受服务端限制。
@@ -35,9 +35,7 @@ ResearchFlow 不是只调用一次模型的聊天壳。它把文档解析、知�
 
 ### 可解释运行：节点轨迹与流式状态
 
-![LangGraph 节点级运行轨迹](docs/images/agent-trace.png)
-
-![Agent 流式节点进度](docs/images/streaming-progress.png)
+网页通过 SSE 显示 `route → rewrite → retrieve / tool → answer → verify → persist` 的节点级状态；每轮完成后可展开引用、改写 Query、验证结果与累计/节点耗时。
 
 ### 知识库管理：多格式与文件夹导入
 
@@ -49,11 +47,11 @@ ResearchFlow 不是只调用一次模型的聊天壳。它把文档解析、知�
 
 ```mermaid
 flowchart TD
-    UI[Multi-turn Web UI / REST API] --> PLAN[Plan and Route]
-    PLAN --> REWRITE[Session-aware Query Rewrite]
+    UI[Multi-turn Web UI / REST API] --> ROUTE[Rule-based Route]
+    ROUTE --> REWRITE[Session-aware Query Rewrite]
     REWRITE --> RAG[Knowledge query]
-    PLAN --> TOOL[Calculation query]
-    PLAN --> DIRECT[Empty corpus]
+    ROUTE --> TOOL[Calculation query]
+    ROUTE --> DIRECT[Empty corpus]
     RAG --> RETRIEVE[Hybrid Retrieval<br/>BM25 + Vector + RRF]
     RETRIEVE --> ANSWER[Constrained Answer]
     TOOL --> ANSWER

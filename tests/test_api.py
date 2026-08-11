@@ -98,7 +98,7 @@ def test_chat_stream_emits_node_progress_and_final_result(tmp_path):
     assert "event: status" in response.text
     packets = [(event, json.loads(data)) for event, data in re.findall(r"event: ([^\n]+)\ndata: ([^\n]+)", response.text)]
     status_packets = [data for event, data in packets if event == "status"]
-    assert any(data["node"] == "plan" and data["phase"] == "running" for data in status_packets)
+    assert any(data["node"] == "route" and data["phase"] == "running" for data in status_packets)
     assert any(data["node"] == "retrieve" and data["phase"] == "completed" for data in status_packets)
     assert any(data["node"] == "verify" and data["phase"] == "running" for data in status_packets)
     final = next(data for event, data in packets if event == "complete")

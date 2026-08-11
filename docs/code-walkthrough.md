@@ -64,7 +64,7 @@ class ChatRequest(BaseModel):
 | `thinking_mode` | 本轮 DeepSeek 生成策略：`disabled` / `enabled` |
 | `query` | 原始用户问题 |
 | `route` | `rag`、`tool` 或 `direct` |
-| `plan` | 面向 UI/轨迹的步骤说明 |
+| `route_steps` | 面向 UI/轨迹的执行路径说明 |
 | `retrieved` | 检索证据 chunks |
 | `tool_result` | 安全计算结果 |
 | `answer` | 最终或待校验回答 |
@@ -77,7 +77,7 @@ class ChatRequest(BaseModel):
 
 `initial_state` 只初始化运行必需字段；后续节点返回增量字典，由 LangGraph 合并进 state。
 
-## 5. plan 节点
+## 5. route 节点
 
 当前路由是可解释的规则路由，不是 LLM 自主规划：
 

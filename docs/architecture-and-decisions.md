@@ -38,9 +38,9 @@ sequenceDiagram
 
     U->>A: POST /api/chat/stream (session_id, thinking_mode)
     A->>G: create run + initial state
-    G-->>A: SSE status: plan
+    G-->>A: SSE status: route
     A-->>U: 实时节点状态
-    G->>G: plan and route
+    G->>G: rule-based route
     alt 知识型问题且语料非空
         G->>G: session-aware query rewrite
         G->>R: BM25 + vector + RRF
@@ -68,7 +68,7 @@ sequenceDiagram
 
 ### 关键状态与约束
 
-- `plan` 只选择知识检索、计算工具或空语料处理，不让模型任意调用本地能力。
+- `route` 只选择知识检索、计算工具或空语料处理，不让模型任意调用本地能力。
 - 知识型回答必须带有检索证据及 `[n]` 引用；校验失败时只允许一次扩展查询，避免无限循环。
 - 运行事件、错误类型和延迟写入 SQLite。对外只返回脱敏后的异常类别，避免意外暴露密钥、路径或上游响应内容。
 - 一个 `session_id` 是一段对话；一次用户提交及其有限重试对应一个 `run_id`。网页恢复的是同一会话下按时间排序的 runs，不会把不同会话混在一个聊天记录中。

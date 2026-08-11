@@ -129,7 +129,7 @@ class ResearchFlowService:
         state = initial_state(session_id, query, document_ids=document_ids, thinking_mode=effective_thinking)
         final_state: dict[str, Any] = dict(state)
         completed_messages = {
-            "plan": "已确定执行路径。",
+            "route": "已确定执行路径。",
             "rewrite": "检索问题已准备完成。",
             "retrieve": "候选证据已找回。",
             "tool": "工具结果已获得。",

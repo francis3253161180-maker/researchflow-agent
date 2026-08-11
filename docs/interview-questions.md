@@ -28,9 +28,9 @@
 
 ### 6. 图中有哪些节点？
 
-`plan`、`retrieve`、`tool`、`answer`、`verify`、`persist`。固定边连接正常路径，条件边负责 plan 分支和 verify 重试。
+`route`、`retrieve`、`tool`、`answer`、`verify`、`persist`。固定边连接正常路径，条件边负责 route 分支和 verify 重试。
 
-### 7. plan 是如何做的？
+### 7. route 是如何做的？
 
 当前是规则式：检测算术表达式走 tool；否则有 chunks 走 RAG；空知识库走 direct。它稳定可解释，但对复杂意图不足。
 
