@@ -242,6 +242,10 @@ def test_web_ui_exposes_upload_and_citation_surfaces(tmp_path):
         page = client.get("/")
         assert page.status_code == 200
         assert "uploadSelectedFiles" in page.text
+        assert "uploadSelectedFolder" in page.text
+        assert "webkitdirectory" in page.text
+        assert "选择文件夹并导入" in page.text
+        assert "webkitRelativePath" in page.text
         assert "选择 PDF / DOCX / XLSX / Markdown / TXT（可多选）" in page.text
         assert "multiple" in page.text
         assert "检索范围" in page.text
