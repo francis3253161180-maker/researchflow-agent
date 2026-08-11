@@ -23,9 +23,25 @@ ResearchFlow 不是只调用一次模型的聊天壳。它把文档解析、知�
 
 ## 界面预览
 
-系统界面展示会话级 Agent 问答、服务与 BGE 分片重排状态、Markdown 回答、可展开的引用证据与运行轨迹。下图使用项目自身的公开技术文档作为知识库，不包含用户上传的论文或审稿材料。
+系统界面展示会话级 Agent 问答、服务与 BGE 分片重排状态、Markdown 回答、可展开的引用证据与运行轨迹。下列截图仅使用项目自身的公开技术文档作为知识库，不包含用户上传的论文或审稿材料。
 
-![带引用的 Agent 回答与运行状态](docs/images/cited-answer-panel.png)
+### 主界面：会话、知识库与运行状态
+
+![ResearchFlow 主界面](docs/images/interface-overview.png)
+
+### 多轮追问：指代消解、改写 Query 与证据引用
+
+![多轮上下文感知的 Query Rewrite 与引用来源](docs/images/multiturn-rewrite-citations.png)
+
+### 可解释运行：节点轨迹与流式状态
+
+![LangGraph 节点级运行轨迹](docs/images/agent-trace.png)
+
+![Agent 流式节点进度](docs/images/streaming-progress.png)
+
+### 知识库管理：多格式与文件夹导入
+
+![知识库导入与批量管理侧栏](docs/images/knowledge-base-import.png)
 
 > 截图中的 BGE 分片重排运行在 CPU 上，适合质量优先的本地演示；实际延迟取决于模型、候选分片数量和硬件配置。
 
