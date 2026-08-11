@@ -1,4 +1,4 @@
-# ResearchFlow Agent
+# ResearchFlow RAG Agent
 
 [![Test ResearchFlow](https://github.com/francis3253161180-maker/researchflow-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/francis3253161180-maker/researchflow-agent/actions/workflows/ci.yml)
 
@@ -236,6 +236,7 @@ tests/              # 单元和 API 端到端测试
 - [Agent 框架与组件边界](docs/framework-boundaries.md)：LangGraph、LangChain、LlamaIndex、MCP、Dify/Coze 与 vLLM 的定位和选型。
 - [MCP 集成手册](docs/mcp-integration.md)：MCP Host / Client / Server 边界、实际工具、桌面 Host 配置与验证方式。
 - [代码走读](docs/code-walkthrough.md)：从 FastAPI 请求到 LangGraph、检索、模型、校验和 SQLite 的逐步追踪。
+- [项目面试话术与事实边界](docs/interview-talk-track.md)：30 秒/90 秒介绍、架构问答、评测口径、局限与个人贡献表述。
 - [Query Rewrite 与结构化验证](docs/query-rewrite-and-verification.md)：多轮追问如何改写、验证实际保证什么，以及可复现测试场景。
 - [失败案例与调试](docs/failure-cases-and-debugging.md)：空语料、引用缺失、模型异常、解析、检索、SQLite 与 Docker 排错。
 - [评测套件](docs/evaluation-suite.md)：受控回归集、论文检索协议与解释边界。
