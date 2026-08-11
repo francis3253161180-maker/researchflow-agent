@@ -258,6 +258,9 @@ def test_web_ui_exposes_upload_and_citation_surfaces(tmp_path):
         assert "/api/reranker/toggle" in page.text
         assert "renderMarkdown" in page.text
         assert "sidebar-resizer" in page.text
+        assert "section-resizer" in page.text
+        assert "setPanelRatio" in page.text
+        assert "researchflow-sidebar-panels-ratio" in page.text
         assert "toggleTurn" in page.text
         assert "turn-details" in page.text
         assert "turn-detail-button" in page.text
