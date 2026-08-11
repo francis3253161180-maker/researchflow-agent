@@ -246,6 +246,10 @@ def test_web_ui_exposes_upload_and_citation_surfaces(tmp_path):
         assert "multiple" in page.text
         assert "检索范围" in page.text
         assert "scope-document" in page.text
+        assert "select-all-documents" in page.text
+        assert "toggleAllDocuments" in page.text
+        assert "delete-selected-documents" in page.text
+        assert "deleteSelectedDocuments" in page.text
         assert "reranker-toggle" in page.text
         assert "/api/reranker/toggle" in page.text
         assert "renderMarkdown" in page.text
