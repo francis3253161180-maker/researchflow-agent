@@ -1,4 +1,4 @@
-# ResearchFlow Agent
+# ResearchFlow RAG Agent
 
 [![Test ResearchFlow](https://github.com/francis3253161180-maker/researchflow-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/francis3253161180-maker/researchflow-agent/actions/workflows/ci.yml)
 
