@@ -20,7 +20,7 @@ create_app
 3. 选择 embedding provider 并创建 `HybridRetriever`；
 4. 创建 `LLMClient`，编译 LangGraph。
 
-面试关注点：对象在 lifespan 中创建一次，而不是每个请求重新加载 FastEmbed、重新建表和重新编译图。
+工程含义：对象在 lifespan 中创建一次，而不是每个请求重新加载 FastEmbed、重新建表和重新编译图。
 
 ## 2. FastAPI 请求边界
 

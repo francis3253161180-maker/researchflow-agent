@@ -19,9 +19,9 @@ DOCS = ROOT / "docs"
 # reads them; they are simple regression checks over public project documents.
 CASES = [
     ("mcp-integration.md", "get_citation_context MCP stdio citation context"),
-    ("quickstarts/sqlite.md", "SQLite WAL transaction foreign key"),
-    ("quickstarts/fastapi.md", "FastAPI uvicorn route request response"),
-    ("quickstarts/langgraph.md", "LangGraph StateGraph node edge state"),
+    ("failure-cases-and-debugging.md", "SQLite WAL transaction foreign key"),
+    ("architecture-and-decisions.md", "FastAPI streaming API request response"),
+    ("framework-boundaries.md", "LangGraph StateGraph route node edge state"),
     ("retrieval-validation.md", "RETRIEVAL_TOP_K BGE reranker Top-N Top-K"),
 ]
 

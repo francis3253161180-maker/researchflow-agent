@@ -48,6 +48,6 @@ python scripts/run_eval.py --corpus-dir .. --embedding-provider fastembed
 3. 后续若接入 Reranker，应在新的、人工标注且术语重合更弱的语料上重新评测；
 4. 当前样本量为 16，只适合作为项目级回归与取舍证据，不能外推为通用 RAG benchmark。
 
-## 面试表述
+## 结果解读
 
 > 我没有把 ResearchFlow 和语料论文中的 GraphRAG 方法直接比较，而是借鉴科研检索场景搭建了一个 4 篇论文、16 条人工标注问题的小规模文档检索评测。评测按文档去重后比较 Lexical、Dense 和 RRF 融合的 Recall@1/2、MRR@4 与延迟。结果显示强术语匹配下 BM25 风格词法检索最强；Hybrid 在 FastEmbed 条件下提升候选覆盖率，但有 CPU 延迟代价。这个结果帮助我把“默认使用 Hybrid”改成按语料分布和延迟预算选型，而不是宣称某种方法永远更好。

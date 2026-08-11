@@ -12,7 +12,7 @@ ResearchFlow now uses five deliberately separate evaluation layers. They answer 
 
 ## 1. Versioned documentation regression
 
-`tests/test_repository_docs_retrieval.py` parses every versioned Markdown file under `docs/`, then checks that hybrid retrieval finds the expected MCP, FastAPI, LangGraph, SQLite and retrieval-validation guide. It requires no personal files, API key, or model download, and runs with ordinary `pytest`.
+`tests/test_repository_docs_retrieval.py` parses every versioned Markdown file under `docs/`, then checks that hybrid retrieval finds the expected MCP integration, architecture, code walkthrough, and retrieval-validation evidence. It requires no personal files, API key, or model download, and runs with ordinary `pytest`.
 
 ## 2. Four-document review/rebuttal QA evaluation
 

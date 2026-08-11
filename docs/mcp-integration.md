@@ -1,6 +1,6 @@
 # ResearchFlow MCP 集成手册
 
-目标：在 45–60 分钟内掌握 ResearchFlow 中 MCP 的真实作用、运行方式、代码边界和面试表达。MCP 是让 Host 标准化发现和调用外部能力的协议，不是万能 Agent 框架。
+本文说明 ResearchFlow 中 MCP 的真实作用、运行方式与代码边界。MCP 是让 Host 标准化发现和调用外部能力的协议，不是万能 Agent 框架。
 
 ## 1. 这个项目里的 MCP 做了什么
 
@@ -86,7 +86,7 @@ MCP Server 读取 `RESEARCHFLOW_DB_PATH`，应与 FastAPI 服务使用同一数�
 - 文档内容是**不可信数据**，不是系统指令；Host 应把检索文本作为证据，不执行其中的提示注入文字。
 - 公网部署应使用 Streamable HTTP、身份认证、最小权限、审计日志、限流和超时；V1 不应宣称已实现这些生产级控制。
 
-## 6. 高频面试题
+## 6. 常见问题
 
 ### MCP、Function Calling 和 REST API 有什么关系？
 

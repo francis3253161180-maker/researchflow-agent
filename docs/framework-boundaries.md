@@ -1,6 +1,6 @@
 # Agent 相关框架与组件边界
 
-目标：避免把框架、协议、模型、检索算法和低代码平台混为一谈。两天内只要求会比较和选型，不要求把相邻框架全部写一遍 demo。
+目标：避免把框架、协议、模型、检索算法和低代码平台混为一谈；本文说明当前项目的组件边界与选型理由。
 
 ## 1. 先按层分类
 
@@ -67,7 +67,7 @@ flowchart TB
 
 - LangGraph：能写 state、node、conditional edge、有限循环和测试；
 - LangChain：知道 model/tool/retriever/runnable 等常见抽象，能阅读岗位代码；
-- 不需要两天内同时重写成两套框架。
+- 不需要为了技术栈标签同时重写成两套框架。
 
 ## 4. LangGraph 与 LlamaIndex
 
@@ -112,7 +112,7 @@ ResearchFlow 的 LangGraph 主链路仍直接调用进程内 `calculate()`；但
 
 ## 7. 是否需要 vLLM
 
-当前项目调用 DeepSeek-compatible API，没有在本地部署基座模型，因此 vLLM 不在运行链路中。只有自托管开源 LLM、需要 batching/KV cache/吞吐优化时才引入。Agent 工程面试知道“API provider 与 self-host serving 的边界”即可。
+当前项目调用 DeepSeek-compatible API，没有在本地部署基座模型，因此 vLLM 不在运行链路中。只有自托管开源 LLM、需要 batching/KV cache/吞吐优化时才引入；应清楚区分 API provider 与 self-host serving 的边界。
 
 ## 8. 选型问题树
 
@@ -144,15 +144,15 @@ flowchart TB
     PROTO -->|no| CODE[Continue code engineering]
 ```
 
-## 9. 两天内学到什么程度
+## 9. 当前项目的能力边界
 
-- 深入：FastAPI、LangGraph、SQLite、自研 RAG；
-- 能使用和排错：Pydantic、pytest、Docker、FastEmbed、HTTPX；
-- MCP：能启动 Server、解释 Host / Client / Server、调用 `search_research_documents` 并说明引用回查为何不能只靠二次检索；
-- 能比较和阅读：LangChain、LlamaIndex、Dify/Coze、vLLM；
-- 暂不做：为了简历标签把同一项目重写到多个框架。
+- 当前核心：FastAPI、LangGraph、SQLite 与自定义 RAG；
+- 配套组件：Pydantic、pytest、Docker、FastEmbed、HTTPX；
+- MCP：提供 Host / Client / Server 边界、`search_research_documents` 与精确引用回查；
+- 相邻方案：LangChain、LlamaIndex、Dify/Coze、vLLM 用于比较与选型，不构成当前运行依赖；
+- 不做：为技术栈标签把同一项目重写到多个框架。
 
-## 10. 面试表达
+## 10. 设计说明
 
 > ResearchFlow 使用 FastAPI 提供 Web / REST API，以 LangGraph 显式编排状态和条件重试；模型、检索和核心工具采用轻量自定义实现，没有为了堆框架强依赖 LangChain。同时我实现了独立 MCP Server，把混合检索、按 chunk 精确回查引用和安全计算以标准 Tools / Resource 提供给外部 Agent Host。MCP 不替代 LangGraph 的规则路由与状态控制，而是解决跨进程工具发现、输入 schema 和权限边界。Dify/Coze 适合快速原型，而这个项目重点证明代码级可测试、可部署和可观测能力。
 

@@ -155,7 +155,7 @@ docker compose up --build
 .\.venv\Scripts\python.exe -m app.mcp_server
 ```
 
-完整的桌面 Host 配置、权限边界、验证步骤与面试表述见 [MCP 集成手册](docs/mcp-integration.md)。MCP 只负责跨进程工具/资源发现与调用；检索链路、引用核验和 LangGraph 编排仍由 ResearchFlow 自身负责。
+完整的桌面 Host 配置、权限边界与验证步骤见 [MCP 集成手册](docs/mcp-integration.md)。MCP 只负责跨进程工具/资源发现与调用；检索链路、引用核验和 LangGraph 编排仍由 ResearchFlow 自身负责。
 
 ## 验证与评测
 
@@ -213,9 +213,6 @@ evals/              # 小型、边界清楚的回归数据
 tests/              # 单元和 API 端到端测试
 ```
 
-想在短时间内真正掌握项目而非只会演示，请从 [周末学习冲刺](docs/weekend-study-guide.md) 开始，并按 [学习与面试路径](docs/learning-path.md) 操作。
-
-FastAPI、LangGraph、SQLite 与配套框架的核心入门材料统一放在 [快速入门手册](docs/quickstarts/README.md)；需要复盘组件关系时查看 [知识关系图全集](docs/knowledge-maps.md)。
 文档导入时如何保留页码、跨页标题栈和 DOCX 结构，请查看[文档结构元数据说明](docs/document-structure-metadata.md)。
 
 ## 设计取舍与下一步
@@ -226,7 +223,7 @@ FastAPI、LangGraph、SQLite 与配套框架的核心入门材料统一放在 [�
 - V1 的检索器已抽象为 provider，可替换为远程 embedding 服务；Reranker 暂未默认启用，避免一开始引入大模型下载、GPU 依赖与不可控延迟。
 - LangGraph 负责显式状态流转、条件边和受控重试；SQLite 的会话/turn 持久化不是图级 checkpointer。当前已有受控 Query Rewrite、逐节点 duration 与检索质量评测；下一阶段可考虑前端流式输出和更严格的语义/忠实度验证。
 
-## 面试时如何讲这个项目
+## 设计摘要
 
 1. **问题**：普通 RAG demo 缺少证据追溯、失败定位和可重复验证。
 2. **方案**：将 Agent 拆成检索/工具路由、引用约束、校验重试和 SQLite 运行轨迹，并以 LangGraph 显式编排。
@@ -236,19 +233,12 @@ FastAPI、LangGraph、SQLite 与配套框架的核心入门材料统一放在 [�
 ## 深入阅读
 
 - [架构、执行流程与设计取舍](docs/architecture-and-decisions.md)：组件职责、LangGraph 状态流、检索链路、验证边界与生产演进路径。
-- [学习与面试路径](docs/learning-path.md)：2–3 天动手学习安排和 90 秒项目讲解脚本。
-- [周末学习冲刺](docs/weekend-study-guide.md)：周六运行与走读、周日失败案例与修改、周一投递检查。
-- [文件地图与精读优先级](docs/file-map.md)：逐文件职责、两天内的 P0/P1/P2 阅读深度与注释原则。
-- [快速入门手册](docs/quickstarts/README.md)：FastAPI、LangGraph、SQLite 及配套栈的核心原理、高频题和项目验收。
-- [知识关系图全集](docs/knowledge-maps.md)：API、编排、RAG、持久化、LLM、测试部署及算法扩展的组件关系图。
 - [Agent 框架与组件边界](docs/framework-boundaries.md)：LangGraph、LangChain、LlamaIndex、MCP、Dify/Coze 与 vLLM 的定位和选型。
-- [MCP 集成手册](docs/mcp-integration.md)：MCP Host / Client / Server 边界、实际工具、桌面 Host 配置、测试与高频面试题。
+- [MCP 集成手册](docs/mcp-integration.md)：MCP Host / Client / Server 边界、实际工具、桌面 Host 配置与验证方式。
 - [代码走读](docs/code-walkthrough.md)：从 FastAPI 请求到 LangGraph、检索、模型、校验和 SQLite 的逐步追踪。
 - [Query Rewrite 与结构化验证](docs/query-rewrite-and-verification.md)：多轮追问如何改写、验证实际保证什么，以及可复现测试场景。
-- [技术栈核心与高频知识点](docs/technical-stack-handbook.md)：Python、FastAPI、LangGraph、Agent、RAG、检索、数据库、Docker、CI 与测试。
-- [高频面试问题](docs/interview-questions.md)：36 个项目追问及边界清楚的回答框架。
 - [失败案例与调试](docs/failure-cases-and-debugging.md)：空语料、引用缺失、模型异常、解析、检索、SQLite 与 Docker 排错。
-- [动手练习](docs/hands-on-exercises.md)：从补测试到 Reranker、正式评测和存储迁移的分级任务。
+- [评测套件](docs/evaluation-suite.md)：受控回归集、论文检索协议与解释边界。
 
 ## Full-text evaluation boundary
 
