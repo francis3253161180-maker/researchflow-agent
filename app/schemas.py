@@ -28,6 +28,9 @@ class MetricsResponse(BaseModel):
     chunks: int
     llm_configured: bool
     embedding_provider: str
+    vector_index: str
+    vector_index_size: int
+    web_search_available: bool
     reranker_requested: str
     reranker_available: bool
     reranker_can_start: bool
@@ -56,6 +59,7 @@ class ChatRequest(BaseModel):
     # infer source restrictions from natural-language wording.
     document_ids: list[str] | None = Field(default=None, max_length=100)
     thinking_mode: Literal["enabled", "disabled"] | None = None
+    source_mode: Literal["auto", "local", "web", "hybrid"] = "auto"
 
 
 class Citation(BaseModel):

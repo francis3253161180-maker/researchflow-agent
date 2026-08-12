@@ -4,7 +4,7 @@
 
 > 面向科研文档的本地可部署 Agent / RAG 服务：真实文档导入、混合检索、可追溯引用、校验与重试、运行轨迹持久化。
 
-ResearchFlow 不是只调用一次模型的聊天壳。它把文档解析、知识库检索、工具路由、受限回答、引用校验、失败重试和运行记录组合成一个可测试的服务。项目以 **FastAPI + LangGraph + SQLite** 实现；默认可完全离线运行，也可通过 `DEEPSEEK_API_KEY` 启用真实 LLM 生成。
+ResearchFlow 不是只调用一次模型的聊天壳。它把文档解析、知识库检索、工具路由、受限回答、引用校验、失败重试和运行记录组合成一个可测试的服务。项目以 **FastAPI + LangGraph + SQLite + FAISS** 实现；默认可完全离线运行，也可通过 `DEEPSEEK_API_KEY` 启用真实 LLM 生成，并可选通过 MCP Client 调用网络搜索。
 
 ## 为什么做它
 
@@ -13,13 +13,14 @@ ResearchFlow 不是只调用一次模型的聊天壳。它把文档解析、知�
 ## 核心能力
 
 - **文档导入**：支持 PDF、DOCX、XLSX、Markdown、TXT；PDF 按页解析，Markdown 标题与 Excel 工作表/行范围作为分节元数据保存。
-- **混合检索**：BM25 风格词法检索与向量相似度检索经 Reciprocal Rank Fusion (RRF) 合并排序。
+- **混合检索**：SQLite 持久化文档、分块、向量、会话与运行轨迹；FAISS `IndexFlatIP` 从 SQLite 可重建地提供归一化向量 Top-K，BM25 与向量排名经 Reciprocal Rank Fusion (RRF) 合并排序。
 - **CPU 语义检索**：可选 FastEmbed 多语种 ONNX embedding，不需要 GPU；默认哈希向量便于离线测试与快速启动。
-- **LangGraph 编排**：`route → rewrite → retrieve / tool → answer → verify → persist`；`route` 是规则式执行路径选择，不是 LLM 规划器；知识问答只利用同一会话最近、已验证的用户 + 助手 turn 消解追问，历史回答不是证据；数学表达式走受限计算工具。
+- **LangGraph 编排**：`route → rewrite → retrieve / web_search → answer → verify → persist`；可选择本地、网络、混合或自动来源；`route` 是规则式执行路径选择，不是 LLM 规划器；知识问答只利用同一会话最近、已验证的用户 + 助手 turn 消解追问，历史回答不是证据。
+- **双向 MCP 集成**：内置 MCP Server 向外部 Host 提供本地检索和引用回查；内置 MCP Client 可调用已配置的网络搜索 Server，并将 URL 作为可核验引用保存。
 - **结构化引用校验与受控重试**：按 `no_evidence → evidence_not_relevant → citation_missing/citation_out_of_range → citation_indices_valid` 判断；无候选或候选不相关时做一次受控 Rewrite/重检索，引用缺失与越界只在原证据上重答一次。
 - **可观测与多轮会话**：SQLite 持久化会话、每轮 run、消息、原始/检索 Query、改写原因、引用、路由、节点事件（累计/节点耗时）、校验状态、回答模式、脱敏错误类型和延迟；网页通过 SSE 实时展示 LangGraph 节点状态，最终回答经校验后一次性提交，并可在回答底部就地展开引用与运行轨迹。
 - **安全边界**：上传文档被视为不可信证据而非指令；可选 `X-API-Key` 保护 `/api/*`；上传大小受服务端限制。
-- **可部署与可验证**：提供多轮网页、OpenAPI、Docker Compose、61 项测试和多层离线回归评测。
+- **可部署与可验证**：提供多轮网页、OpenAPI、Docker Compose、67 项测试和多层离线回归评测。
 
 ## 界面预览
 
@@ -35,7 +36,7 @@ ResearchFlow 不是只调用一次模型的聊天壳。它把文档解析、知�
 
 ### 可解释运行：节点轨迹与流式状态
 
-网页通过 SSE 显示 `route → rewrite → retrieve / tool → answer → verify → persist` 的节点级状态；每轮完成后可展开引用、改写 Query、验证结果与累计/节点耗时。
+网页通过 SSE 显示 `route → rewrite → retrieve / web_search → answer → verify → persist` 的节点级状态；每轮完成后可展开引用、改写 Query、验证结果与累计/节点耗时。
 
 ### 知识库管理：多格式与文件夹导入
 
@@ -49,12 +50,12 @@ ResearchFlow 不是只调用一次模型的聊天壳。它把文档解析、知�
 flowchart TD
     UI[Multi-turn Web UI / REST API] --> ROUTE[Rule-based Route]
     ROUTE --> REWRITE[Session-aware Query Rewrite]
-    REWRITE --> RAG[Knowledge query]
-    ROUTE --> TOOL[Calculation query]
+    ROUTE --> WEB[Web search via MCP Client]
     ROUTE --> DIRECT[Empty corpus]
-    RAG --> RETRIEVE[Hybrid Retrieval<br/>BM25 + Vector + RRF]
-    RETRIEVE --> ANSWER[Constrained Answer]
-    TOOL --> ANSWER
+    REWRITE --> RETRIEVE[Local retrieval<br/>BM25 + FAISS + RRF]
+    RETRIEVE -->|local| ANSWER[Constrained Answer]
+    RETRIEVE -->|hybrid| WEB
+    WEB --> ANSWER
     DIRECT --> ANSWER
     ANSWER --> VERIFY[Verify evidence]
     VERIFY -->|verified or stopped| PERSIST[(SQLite<br/>sessions, runs, citations and traces)]
@@ -111,6 +112,14 @@ RERANKER_CANDIDATES=20
 
 # 可选：保护全部 /api/* 路由
 RESEARCHFLOW_APP_API_KEY=choose-a-strong-local-key
+
+# 可选：网络搜索默认关闭。Tavily 本地 MCP 需要 Node.js 与 API Key；不要提交 .env 或密钥。
+WEB_SEARCH_PROVIDER=mcp
+WEB_SEARCH_MCP_COMMAND=npx
+WEB_SEARCH_MCP_ARGS=["-y", "tavily-mcp@latest"]
+WEB_SEARCH_MCP_TOOL=tavily-search
+WEB_SEARCH_MAX_RESULTS=5
+TAVILY_API_KEY=your_key_here
 ```
 
 如果设置了 `RESEARCHFLOW_APP_API_KEY`，调用 API 时需发送 `X-API-Key`。`/health` 保持开放，方便容器健康检查。切换 embedding provider 或模型后，已有文档的向量不能复用：请删除旧文档并重新导入。网页顶栏会显示当前检索后端；出现 `Hash 离线检索（不支持跨语言语义）` 时，不应期待中文问题能稳定命中英文证据。
@@ -123,7 +132,7 @@ RESEARCHFLOW_APP_API_KEY=choose-a-strong-local-key
 docker compose up --build
 ```
 
-容器把 SQLite 数据库和 FastEmbed 模型缓存持久化到 `researchflow-data` volume。模型文件会在首次设置 `EMBEDDING_PROVIDER=fastembed` 后下载，不会被硬编码进镜像。
+容器把 SQLite 数据库和 FastEmbed 模型缓存持久化到 `researchflow-data` volume；FAISS 索引在服务启动、导入和删除后从 SQLite 向量重建，不需要单独持久化。模型文件会在首次设置 `EMBEDDING_PROVIDER=fastembed` 后下载，不会被硬编码进镜像。
 `.dockerignore` 会排除 `.env`、本地数据库、模型缓存、虚拟环境和 Git 元数据，避免它们进入镜像构建上下文。
 
 ## API 摘要
@@ -146,7 +155,6 @@ docker compose up --build
 
 - `search_research_documents`：BM25 + 向量检索 + RRF，返回含 `chunk_id`、文档名、页码、章节和原文片段的可追溯结果；
 - `get_citation_context`：按 `chunk_id` 精确回查证据，避免二次检索造成引用漂移；
-- `calculate_expression`：复用 AST 限制的安全计算工具；
 - `researchflow://documents` Resource：列出当前已索引文档及运行统计。
 
 在项目根目录安装依赖后启动：
@@ -170,7 +178,7 @@ python scripts/run_eval.py --embedding-provider hash
 python scripts/run_eval.py --embedding-provider fastembed
 ```
 
-当前本机结果：61 项测试全部通过；其中包含会话恢复、逐轮 citations、per-run DeepSeek thinking mode、首轮模型标题、只使用已验证对话的 Query Rewrite、无候选或候选不相关时的一次受控重写/检索、引用缺失与编号越界后的差异化同证据重答、PDF 跨页标题栈、DOCX 多级 Heading/表格继承、Verify 优先级、SSE 节点状态与最终结果、MCP `stdio` 客户端与独立 Server 的端到端握手、工具发现和调用。8 条**受控回归样例**在两种向量后端下均完成检索命中、引用生成和校验（8/8）。GitHub Actions 会在 push/PR 时运行测试并从 Dockerfile 构建镜像。该数据集验证的是项目链路和回归行为，样例内容来自本项目功能说明，**不代表真实企业语料上的准确率、召回率或幻觉率**。
+当前本机结果：67 项测试全部通过；其中包含会话恢复、逐轮 citations、per-run DeepSeek thinking mode、首轮模型标题、只使用已验证对话的 Query Rewrite、无候选或候选不相关时的一次受控重写/检索、引用缺失与编号越界后的差异化同证据重答、PDF 跨页标题栈、DOCX 多级 Heading/表格继承、FAISS 启动/导入/删除重建、MCP 网络搜索的 auto/web/hybrid 路由、网络未配置边界、MCP `stdio` 客户端与独立 Server 的端到端握手、工具发现和调用。8 条**受控回归样例**在两种向量后端下均完成检索命中、引用生成和校验（8/8）。GitHub Actions 会在 push/PR 时运行测试并从 Dockerfile 构建镜像。该数据集验证的是项目链路和回归行为，样例内容来自本项目功能说明，**不代表真实企业语料上的准确率、召回率或幻觉率**。
 
 ### 小规模论文检索评测
 
@@ -202,12 +210,14 @@ python scripts/run_eval.py --corpus-dir .. --embedding-provider fastembed
 ```text
 app/
   ingestion.py     # PDF/DOCX/XLSX/MD/TXT 解析及页码/分节元数据
-  retrieval.py     # 分块、BM25、向量后端与 RRF
+  retrieval.py     # 分块、BM25、FAISS 向量 Top-K 与 RRF
+  vector_index.py  # 可从 SQLite 重建的 FAISS 索引
   graph.py         # LangGraph 状态、节点、路由、校验与重试
   llm.py           # 离线回答与 OpenAI-compatible / DeepSeek 调用
   db.py             # SQLite schema、会话与运行轨迹
   main.py           # FastAPI 路由与可选 API key 保护
-  mcp_server.py     # 标准 MCP Server：检索、精确引用回查、计算与文档 Resource
+  mcp_server.py     # 标准 MCP Server：检索、精确引用回查与文档 Resource
+  web_search.py     # MCP Client：调用外部网络搜索并标准化 URL 证据
   static/           # 无构建步骤的网页界面
 evals/              # 小型、边界清楚的回归数据
 tests/              # 单元和 API 端到端测试
@@ -217,7 +227,7 @@ tests/              # 单元和 API 端到端测试
 
 ## 设计取舍与下一步
 
-- V1 使用 SQLite + 应用内向量扫描，适合本地单用户、小规模资料和演示；大规模语料应迁移到专用向量数据库并增加异步任务队列。
+- V1 使用 SQLite 作为持久化真源、FAISS 作为可重建的单机向量 Top-K，适合本地单用户、小规模资料和演示；大规模语料才应评估 Milvus 等专用向量数据库与异步任务队列。
 - PDF 导入依赖文本层提取；扫描版 PDF、复杂双栏排版或图表中的文字需要在后续接入 OCR/版面解析，而不应被误称为“所有 PDF 均可可靠解析”。
 - XLSX 导入以只读方式序列化工作表行；公式以公式文本保留，不执行公式、宏或外部连接，因此不是电子表格自动化能力。
 - V1 的检索器已抽象为 provider，可替换为远程 embedding 服务；Reranker 暂未默认启用，避免一开始引入大模型下载、GPU 依赖与不可控延迟。
@@ -228,13 +238,14 @@ tests/              # 单元和 API 端到端测试
 1. **问题**：普通 RAG demo 缺少证据追溯、失败定位和可重复验证。
 2. **方案**：将 Agent 拆成检索/工具路由、引用约束、校验重试和 SQLite 运行轨迹，并以 LangGraph 显式编排。
 3. **工程取舍**：默认离线保证测试和演示可复现；可选 FastEmbed 在 CPU 上完成语义检索；真实 LLM 通过环境变量注入，密钥不入库。
-4. **证据**：上传、引用页码/分节、PDF 跨页标题栈、DOCX 多级 Heading/表格继承、会话恢复、per-run thinking mode、首轮模型标题、可信短期记忆的 Query Rewrite 轨迹、按 Verify 原因分流的检索/生成修复、API 防护、61 项测试、MCP 端到端调用和受控回归评测均有对应代码；后续需要补齐更严格的引用忠实度验证。
+4. **证据**：上传、引用页码/分节、PDF 跨页标题栈、DOCX 多级 Heading/表格继承、会话恢复、per-run thinking mode、可信短期记忆的 Query Rewrite 轨迹、FAISS 索引重建、按 Verify 原因分流的检索/生成修复、MCP Client/Server 的端到端调用、API 防护、67 项测试和受控回归评测均有对应代码；后续需要补齐更严格的引用忠实度验证。
 
 ## 深入阅读
 
 - [架构、执行流程与设计取舍](docs/architecture-and-decisions.md)：组件职责、LangGraph 状态流、检索链路、验证边界与生产演进路径。
 - [Agent 框架与组件边界](docs/framework-boundaries.md)：LangGraph、LangChain、LlamaIndex、MCP、Dify/Coze 与 vLLM 的定位和选型。
 - [MCP 集成手册](docs/mcp-integration.md)：MCP Host / Client / Server 边界、实际工具、桌面 Host 配置与验证方式。
+- [FAISS 与网络搜索](docs/faiss-and-web-search.md)：SQLite/FAISS 分工、MCP Client 网络搜索、路由规则、配置与测试边界。
 - [代码走读](docs/code-walkthrough.md)：从 FastAPI 请求到 LangGraph、检索、模型、校验和 SQLite 的逐步追踪。
 - [Query Rewrite 与结构化验证](docs/query-rewrite-and-verification.md)：多轮追问如何改写、验证实际保证什么，以及可复现测试场景。
 - [失败案例与调试](docs/failure-cases-and-debugging.md)：空语料、引用缺失、模型异常、解析、检索、SQLite 与 Docker 排错。

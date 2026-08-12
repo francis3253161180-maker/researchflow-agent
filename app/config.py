@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 import os
 from pathlib import Path
+import json
 
 from dotenv import load_dotenv
 
@@ -26,6 +27,11 @@ class Settings:
     reranker_device: str = "auto"
     reranker_candidates: int = 20
     retrieval_top_k: int = 6
+    web_search_provider: str = "none"
+    web_search_mcp_command: str = "npx"
+    web_search_mcp_args: tuple[str, ...] = ("-y", "tavily-mcp@latest")
+    web_search_mcp_tool: str = "tavily-search"
+    web_search_max_results: int = 5
     app_api_key: str = ""
     max_upload_bytes: int = 15 * 1024 * 1024
 
@@ -53,6 +59,11 @@ class Settings:
             reranker_device=os.getenv("RERANKER_DEVICE", "auto").lower(),
             reranker_candidates=int(os.getenv("RERANKER_CANDIDATES", "20")),
             retrieval_top_k=int(os.getenv("RETRIEVAL_TOP_K", "6")),
+            web_search_provider=os.getenv("WEB_SEARCH_PROVIDER", "none").lower(),
+            web_search_mcp_command=os.getenv("WEB_SEARCH_MCP_COMMAND", "npx"),
+            web_search_mcp_args=tuple(json.loads(os.getenv("WEB_SEARCH_MCP_ARGS", '["-y", "tavily-mcp@latest"]'))),
+            web_search_mcp_tool=os.getenv("WEB_SEARCH_MCP_TOOL", "tavily-search"),
+            web_search_max_results=int(os.getenv("WEB_SEARCH_MAX_RESULTS", "5")),
             app_api_key=os.getenv("RESEARCHFLOW_APP_API_KEY", ""),
             max_upload_bytes=int(os.getenv("RESEARCHFLOW_MAX_UPLOAD_BYTES", str(15 * 1024 * 1024))),
         )

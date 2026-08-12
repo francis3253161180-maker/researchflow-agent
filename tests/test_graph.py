@@ -22,10 +22,26 @@ def test_rag_route_returns_citations_and_persists_memory(tmp_path):
     assert service.db.get_run(result["run_id"]) is not None
 
 
-def test_calculator_tool_route(tmp_path):
-    service = ResearchFlowService(Settings(db_path=str(tmp_path / "tool.db")))
-    result = service.chat("请计算 (12 + 8) * 3", "session_tool")
-    assert result["route"] == "tool"
+def test_web_search_replaces_calculator_tool_route(tmp_path):
+    class FakeWebSearch:
+        available = True
+
+        def search(self, query, max_results):
+            return [{
+                "chunk_id": "web_math",
+                "document_id": "https://example.com/math",
+                "title": "Calculator result",
+                "source": "https://example.com/math",
+                "content": "The result of (12 + 8) * 3 is 60.",
+                "score": 1.0,
+                "page": None,
+                "section": "Web",
+                "filename": "",
+            }]
+
+    service = ResearchFlowService(Settings(db_path=str(tmp_path / "web.db")), web_search=FakeWebSearch())
+    result = service.chat("请计算 (12 + 8) * 3", "session_web", source_mode="web")
+    assert result["route"] == "web"
     assert result["verified"] is True
     assert "60" in result["answer"]
 

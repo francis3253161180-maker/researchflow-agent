@@ -75,15 +75,25 @@ Agent项目的区分度常来自“失败时能否定位”，而不是正常dem
 - 远程服务返回顺序是否按index恢复；
 - 文本是否被截断或为空。
 
-项目对维度不一致返回0分；远程向量当前没有本地归一化，是潜在改进点。
+FAISS 会在索引与查询边界做 L2 归一化；若出现维度不一致，索引会给出明确错误而不是静默比较不同向量空间。更换 embedding provider/model 后应删除旧语料并重导入。
 
-## 案例8：计算工具失败
+## 案例8：网络搜索未配置或 MCP 调用失败
 
-**复现**：不支持的函数调用、超大指数、除零或无表达式。
+**复现**：在默认 `WEB_SEARCH_PROVIDER=none` 下选择“仅网络搜索”，或配置不可用的 MCP command/tool。
 
-**预期**：tool_result为空、errors记录错误，图继续进入answer/verify/persist，而不是让请求未经处理地崩溃。
+**预期**：`web_search` 节点记录脱敏错误，回答明确说明“未获得可核验网页证据”；不会把网络问题伪装成本地 RAG 命中，也不会杜撰 URL 引用。
 
-## 案例9：SQLite锁或写入异常
+**检查**：查看 `route=web`、`errors` 和 `events`；确认 `.env` 中 API Key 未进入 Git 或 run 轨迹。
+
+## 案例9：FAISS 索引与 SQLite 分块不同步
+
+**现象**：直接手改 SQLite，或服务异常中断在文档写入后，索引大小和 `chunks` 数不一致。
+
+**预期**：下一次查询会检查数量并从 SQLite 重建 FAISS 索引；正常导入、删除和服务重启也都会触发重建。
+
+**边界**：FAISS 不是持久化真源。若 SQLite 向量已来自旧 embedding 模型，重建不会修复向量空间混用，仍需重导入。
+
+## 案例10：SQLite锁或写入异常
 
 **检查**：
 
@@ -95,7 +105,7 @@ Agent项目的区分度常来自“失败时能否定位”，而不是正常dem
 
 当前连接timeout为20秒，成功commit、异常rollback。
 
-## 案例10：Docker重启后数据消失
+## 案例11：Docker重启后数据消失
 
 **检查**：是否通过Compose启动并挂载 `researchflow-data:/app/data`；直接运行容器但未挂volume会丢失容器可写层中的数据。
 

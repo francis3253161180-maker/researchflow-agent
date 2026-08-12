@@ -38,7 +38,7 @@ flowchart TB
 | LangGraph | 状态工作流/Agent 编排 | state、node、edge、循环、持久化/HITL 能力 | 是，直接依赖 |
 | LangChain | LLM 应用组件库 | model、prompt、tool、retriever、chain 等抽象 | 否，主链路使用自定义组件 |
 | LlamaIndex | 数据/RAG 框架 | 文档 ingestion、index、retriever、query engine | 否，当前自研轻量链路 |
-| MCP | 工具与上下文协议 | client/server 间发现和调用工具/资源 | 是，独立 stdio Server 暴露检索、引用回查、计算与文档 Resource |
+| MCP | 工具与上下文协议 | client/server 间发现和调用工具/资源 | 是，Server 暴露本地检索/引用回查；Client 调用外部网络搜索 |
 | Dify/Coze | 低代码应用平台 | 快速编排、运营、发布和集成 | 否，ResearchFlow 是代码工程 |
 | FastEmbed | 推理库 | CPU ONNX embedding 推理 | 是，可选 embedding backend；BGE reranker 由独立 Transformers 组件负责 |
 | vLLM | LLM 推理服务/引擎 | 高吞吐模型 serving | 否，调用外部 LLM API |
@@ -93,7 +93,7 @@ sequenceDiagram
     C-->>G: tool result
 ```
 
-ResearchFlow 的 LangGraph 主链路仍直接调用进程内 `calculate()`；但项目同时提供独立 MCP Server，把检索、精确引用回查、计算和文档清单开放给外部 Host。MCP 的价值是跨进程、跨 Host 的标准发现、参数 schema 和权限边界，而不是取代 LangGraph 的规则路由。
+ResearchFlow 的 LangGraph 主链路在需要网络证据时会通过 MCP Client 调用外部搜索工具；同时项目提供独立 MCP Server，把本地检索、精确引用回查和文档清单开放给外部 Host。MCP 的价值是跨进程、跨 Host 的标准发现、参数 schema 和权限边界，而不是取代 LangGraph 的规则路由。
 
 对于有 Markdown 标题层级的来源，检索层让每个 chunk 继承其最近的标题上下文；对 PDF、DOCX、TXT 则采用格式无关的段落/自然换行/句末优先分块，必要时才使用重叠滑窗。中英跨语言语义匹配应由多语种 embedding 或查询重写承担，而不是依赖某个来源的字段名或维护关键词映射表。
 
@@ -146,15 +146,15 @@ flowchart TB
 
 ## 9. 当前项目的能力边界
 
-- 当前核心：FastAPI、LangGraph、SQLite 与自定义 RAG；
+- 当前核心：FastAPI、LangGraph、SQLite、FAISS 与自定义 RAG；
 - 配套组件：Pydantic、pytest、Docker、FastEmbed、HTTPX；
-- MCP：提供 Host / Client / Server 边界、`search_research_documents` 与精确引用回查；
+- MCP：Server 提供 `search_research_documents` 与精确引用回查；Client 调用外部网络搜索；
 - 相邻方案：LangChain、LlamaIndex、Dify/Coze、vLLM 用于比较与选型，不构成当前运行依赖；
 - 不做：为技术栈标签把同一项目重写到多个框架。
 
 ## 10. 设计说明
 
-> ResearchFlow 使用 FastAPI 提供 Web / REST API，以 LangGraph 显式编排状态和条件重试；模型、检索和核心工具采用轻量自定义实现，没有为了堆框架强依赖 LangChain。同时我实现了独立 MCP Server，把混合检索、按 chunk 精确回查引用和安全计算以标准 Tools / Resource 提供给外部 Agent Host。MCP 不替代 LangGraph 的规则路由与状态控制，而是解决跨进程工具发现、输入 schema 和权限边界。Dify/Coze 适合快速原型，而这个项目重点证明代码级可测试、可部署和可观测能力。
+> ResearchFlow 使用 FastAPI 提供 Web / REST API，以 LangGraph 显式编排状态和条件重试；SQLite 保存可追溯业务数据，FAISS 完成可重建的向量 Top-K，没有为了堆框架强依赖 LangChain。同时我实现 MCP Server 让外部 Host 复用本地检索/精确引用回查，也实现 MCP Client 调用外部网络搜索。MCP 不替代 LangGraph 的规则路由与状态控制，而是解决跨进程工具发现、输入 schema 和权限边界。Dify/Coze 适合快速原型，而这个项目重点证明代码级可测试、可部署和可观测能力。
 
 ## 官方入口
 

@@ -20,7 +20,8 @@ def test_mcp_server_lists_tools_and_searches_traceable_content(tmp_path):
     server = create_mcp_server(settings)
 
     names = {tool.name for tool in asyncio.run(server.list_tools())}
-    assert {"search_research_documents", "get_citation_context", "calculate_expression"} <= names
+    assert {"search_research_documents", "get_citation_context"} <= names
+    assert "calculate_expression" not in names
 
     result = asyncio.run(server.call_tool("search_research_documents", {"query": "Model Context Protocol", "top_k": 3}))
     payload = result.structured_content
@@ -43,12 +44,6 @@ def test_mcp_server_reads_citation_and_exposes_inventory_resource(tmp_path):
 
     resources = list(asyncio.run(server.read_resource("researchflow://documents")))
     assert "ResearchFlow" in resources[0].content
-
-
-def test_mcp_safe_calculator_reuses_restricted_tool(tmp_path):
-    server = create_mcp_server(Settings(db_path=str(tmp_path / "mcp-calculator.db")))
-    result = asyncio.run(server.call_tool("calculate_expression", {"expression": "12 * (3 + 2)"}))
-    assert result.structured_content == {"result": "12 * (3 + 2) = 60"}
 
 
 def test_mcp_stdio_client_discovers_and_calls_server(tmp_path):

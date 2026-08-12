@@ -28,21 +28,19 @@ class LLMClient:
         query: str,
         contexts: list[dict],
         memory: list[dict[str, str]],
-        tool_result: str = "",
         thinking_mode: str | None = None,
         citation_retry: bool = False,
         citation_failure_reason: str = "",
     ) -> str:
         if self.configured:
-            return self._remote_generate(query, contexts, memory, tool_result, thinking_mode, citation_retry, citation_failure_reason)
-        return self._offline_generate(query, contexts, tool_result)
+            return self._remote_generate(query, contexts, memory, thinking_mode, citation_retry, citation_failure_reason)
+        return self._offline_generate(query, contexts)
 
     def _remote_generate(
         self,
         query: str,
         contexts: list[dict],
         memory: list[dict],
-        tool_result: str,
         thinking_mode: str | None,
         citation_retry: bool,
         citation_failure_reason: str,
@@ -71,7 +69,7 @@ class LLMClient:
         messages.append(
             {
                 "role": "user",
-                "content": f"Question: {query}\nTool result: {tool_result}\nContext:\n{context_text}",
+                "content": f"Question: {query}\nContext:\n{context_text}",
             }
         )
         return self._complete(messages, thinking_mode, max_tokens=1200)
@@ -227,9 +225,7 @@ class LLMClient:
         raise RuntimeError("LLM request failed after 3 attempts") from last_error
 
     @staticmethod
-    def _offline_generate(query: str, contexts: list[dict], tool_result: str) -> str:
-        if tool_result:
-            return f"工具计算结果：{tool_result}。"
+    def _offline_generate(query: str, contexts: list[dict]) -> str:
         if not contexts:
             return "当前知识库中没有足够证据回答该问题；请先导入相关文档，或配置兼容的模型服务。"
         evidence = []

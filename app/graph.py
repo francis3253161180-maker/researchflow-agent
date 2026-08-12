@@ -11,7 +11,7 @@ from langgraph.graph import END, START, StateGraph
 from app.db import Database
 from app.llm import LLMClient, LLMConnectionError
 from app.retrieval import HybridRetriever
-from app.tools import calculate
+from app.web_search import DisabledWebSearch, WebSearchClient, WebSearchError
 
 
 class AgentState(TypedDict, total=False):
@@ -23,10 +23,11 @@ class AgentState(TypedDict, total=False):
     verify_reason: str
     thinking_mode: str
     document_ids: list[str] | None
+    source_mode: str
     route: str
     route_steps: list[str]
     retrieved: list[dict[str, Any]]
-    tool_result: str
+    web_fallback_used: bool
     answer: str
     evidence_status: str
     citations: list[dict[str, Any]]
@@ -112,16 +113,46 @@ def strip_evidence_status_marker(answer: str) -> tuple[str, str]:
     return answer[: match.start()].rstrip(), match.group(1).lower()
 
 
-def build_graph(db: Database, retriever: HybridRetriever, llm: LLMClient, retrieval_top_k: int = 6):
+def build_graph(
+    db: Database,
+    retriever: HybridRetriever,
+    llm: LLMClient,
+    web_search: WebSearchClient | None = None,
+    retrieval_top_k: int = 6,
+    web_search_max_results: int = 5,
+):
+    resolved_web_search = web_search or DisabledWebSearch()
     def route_node(state: AgentState) -> dict[str, Any]:
         started = time.perf_counter()
         emit_progress("route", "正在判断问题类型与执行路径…")
         query = state["query"].strip()
-        has_math = bool(re.search(r"\d\s*[-+*/%]\s*\d", query))
-        route = "tool" if has_math else ("rag" if db.chunk_count() else "direct")
+        source_mode = state.get("source_mode", "auto")
+        current_information = bool(
+            re.search(
+                r"\b(latest|current|today|recent|news|price|schedule|202[5-9])\b|"
+                r"最新|今天|今日|实时|当前|近期|新闻|价格|官网|现任|今年",
+                query,
+                re.IGNORECASE,
+            )
+        )
+        if source_mode == "local":
+            route = "rag" if db.chunk_count() else "direct"
+        elif source_mode == "web":
+            route = "web"
+        elif source_mode == "hybrid":
+            route = "hybrid"
+        elif current_information and resolved_web_search.available:
+            route = "web"
+        elif db.chunk_count():
+            route = "rag"
+        elif resolved_web_search.available:
+            route = "web"
+        else:
+            route = "direct"
         route_steps = {
-            "tool": ["识别计算表达式", "执行安全计算工具", "校验并返回结果"],
             "rag": ["检索科研文档", "基于证据生成答案", "校验引用完整性"],
+            "web": ["通过 MCP 搜索网络", "基于网页证据生成答案", "校验引用完整性"],
+            "hybrid": ["检索本地文档", "通过 MCP 搜索网络", "融合证据并校验引用"],
             "direct": ["检查知识库状态", "生成受限回答"],
         }
         document_ids = state.get("document_ids")
@@ -131,7 +162,7 @@ def build_graph(db: Database, retriever: HybridRetriever, llm: LLMClient, retrie
             "route_steps": route_steps[route],
             "document_ids": document_ids,
             "scope_mode": scope_mode,
-            "events": event(state, "route", f"route={route}; scope={scope_mode}", started),
+            "events": event(state, "route", f"route={route}; requested={source_mode}; scope={scope_mode}", started),
         }
 
     def rewrite_node(state: AgentState) -> dict[str, Any]:
@@ -182,16 +213,25 @@ def build_graph(db: Database, retriever: HybridRetriever, llm: LLMClient, retrie
             scope = f"{scope}; documents={len(document_ids)}"
         return {"retrieved": results, "retrieval_query": query, "rewrite_reason": rewrite_reason, "events": event(state, "retrieve", f"hits={len(results)}; scope={scope}", started)}
 
-    def tool_node(state: AgentState) -> dict[str, Any]:
+    def web_search_node(state: AgentState) -> dict[str, Any]:
         started = time.perf_counter()
-        emit_progress("tool", "正在调用安全计算工具…")
+        emit_progress("web_search", "正在通过 MCP 调用网络搜索工具…")
+        existing = state.get("retrieved", []) if state.get("route") == "hybrid" else []
         try:
-            result = calculate(state["query"])
+            web_results = resolved_web_search.search(state["query"], web_search_max_results)
             errors = state.get("errors", [])
-        except Exception as exc:  # surfaced to the graph instead of crashing the request
-            result = ""
+        except WebSearchError as exc:
+            web_results = []
             errors = [*state.get("errors", []), str(exc)]
-        return {"tool_result": result, "errors": errors, "events": event(state, "tool", result or "tool_error", started)}
+        fallback = state.get("route") == "rag"
+        combined = [*existing, *web_results]
+        return {
+            "route": "web" if fallback else state["route"],
+            "retrieved": combined,
+            "web_fallback_used": fallback or state.get("web_fallback_used", False),
+            "errors": errors,
+            "events": event(state, "web_search", f"hits={len(web_results)}; combined={len(combined)}", started),
+        }
 
     def answer_node(state: AgentState) -> dict[str, Any]:
         started = time.perf_counter()
@@ -204,25 +244,32 @@ def build_graph(db: Database, retriever: HybridRetriever, llm: LLMClient, retrie
             "citation_missing",
             "citation_out_of_range",
         }
-        try:
-            answer = llm.generate(
-                state["query"], contexts, memory, state.get("tool_result", ""), state.get("thinking_mode"),
-                citation_retry=citation_retry,
-                citation_failure_reason=state.get("verify_reason", "") if citation_retry else "",
-            )
+        if state.get("route") == "web" and not contexts and state.get("errors"):
+            answer = "网络搜索服务当前未配置或暂不可用，未获得可核验的网页证据。"
             errors = state.get("errors", [])
-        except Exception as exc:
-            answer = (
-                "模型网络连接暂时失败，已保留检索结果，请稍后重试。"
-                if isinstance(exc, LLMConnectionError)
-                else "模型服务暂时不可用，已保留检索结果，请稍后重试。"
-            )
-            # Keep persisted traces useful without storing provider responses,
-            # request details, or any accidental secrets.
-            error_code = f"llm_error: {type(exc).__name__}"
-            errors = state.get("errors", [])
-            if error_code not in errors:
-                errors = [*errors, error_code]
+        else:
+            try:
+                answer = llm.generate(
+                    state["query"],
+                    contexts,
+                    memory,
+                    thinking_mode=state.get("thinking_mode"),
+                    citation_retry=citation_retry,
+                    citation_failure_reason=state.get("verify_reason", "") if citation_retry else "",
+                )
+                errors = state.get("errors", [])
+            except Exception as exc:
+                answer = (
+                    "模型网络连接暂时失败，已保留检索结果，请稍后重试。"
+                    if isinstance(exc, LLMConnectionError)
+                    else "模型服务暂时不可用，已保留检索结果，请稍后重试。"
+                )
+                # Keep persisted traces useful without storing provider responses,
+                # request details, or any accidental secrets.
+                error_code = f"llm_error: {type(exc).__name__}"
+                errors = state.get("errors", [])
+                if error_code not in errors:
+                    errors = [*errors, error_code]
         answer, evidence_status = strip_evidence_status_marker(answer)
         # The prompt numbers every retrieved context. Return the same complete
         # list to clients so a model citation such as [4] never points outside
@@ -241,7 +288,7 @@ def build_graph(db: Database, retriever: HybridRetriever, llm: LLMClient, retrie
         started = time.perf_counter()
         emit_progress("verify", "正在核验回答引用与证据范围…")
         route = state["route"]
-        if route == "rag":
+        if route in {"rag", "web", "hybrid"}:
             citations = state.get("citations", [])
             indices = [int(index) for index in re.findall(r"\[(\d+)\]", state.get("answer", ""))]
             if not citations:
@@ -258,12 +305,10 @@ def build_graph(db: Database, retriever: HybridRetriever, llm: LLMClient, retrie
                 verified, verify_reason = False, "citation_out_of_range"
             else:
                 verified, verify_reason = True, "citation_indices_valid"
-        elif route == "tool":
-            verified, verify_reason = bool(state.get("tool_result")), "tool_result_present"
         else:
             verified, verify_reason = bool(state.get("answer")), "direct_answer_present"
         retry_count = state.get("retry_count", 0)
-        if not verified and route == "rag":
+        if not verified and route in {"rag", "web", "hybrid"}:
             retry_count += 1
         return {
             "verified": verified,
@@ -300,28 +345,40 @@ def build_graph(db: Database, retriever: HybridRetriever, llm: LLMClient, retrie
         return {"latency_ms": latency_ms, "events": events}
 
     def after_route(state: AgentState) -> str:
-        return {"rag": "rewrite", "tool": "tool", "direct": "answer"}[state["route"]]
+        return {"rag": "rewrite", "web": "web_search", "hybrid": "rewrite", "direct": "answer"}[state["route"]]
+
+    def after_retrieve(state: AgentState) -> str:
+        return "web_search" if state["route"] == "hybrid" else "answer"
 
     def after_verify(state: AgentState) -> str:
-        if state["route"] == "rag" and not state["verified"] and state.get("retry_count", 0) == 1:
+        if state["route"] in {"rag", "hybrid"} and not state["verified"] and state.get("retry_count", 0) == 1:
             return "retrieve" if state.get("verify_reason") in {"no_evidence", "evidence_not_relevant"} else "answer"
+        if (
+            state["route"] == "rag"
+            and state.get("source_mode") == "auto"
+            and resolved_web_search.available
+            and not state.get("verified")
+            and state.get("verify_reason") in {"no_evidence", "evidence_not_relevant"}
+            and not state.get("web_fallback_used")
+        ):
+            return "web_search"
         return "persist"
 
     graph = StateGraph(AgentState)
     graph.add_node("route", route_node)
     graph.add_node("rewrite", rewrite_node)
     graph.add_node("retrieve", retrieve_node)
-    graph.add_node("tool", tool_node)
+    graph.add_node("web_search", web_search_node)
     graph.add_node("answer", answer_node)
     graph.add_node("verify", verify_node)
     graph.add_node("persist", persist_node)
     graph.add_edge(START, "route")
-    graph.add_conditional_edges("route", after_route, {"rewrite": "rewrite", "tool": "tool", "answer": "answer"})
+    graph.add_conditional_edges("route", after_route, {"rewrite": "rewrite", "web_search": "web_search", "answer": "answer"})
     graph.add_edge("rewrite", "retrieve")
-    graph.add_edge("retrieve", "answer")
-    graph.add_edge("tool", "answer")
+    graph.add_conditional_edges("retrieve", after_retrieve, {"web_search": "web_search", "answer": "answer"})
+    graph.add_edge("web_search", "answer")
     graph.add_edge("answer", "verify")
-    graph.add_conditional_edges("verify", after_verify, {"retrieve": "retrieve", "answer": "answer", "persist": "persist"})
+    graph.add_conditional_edges("verify", after_verify, {"retrieve": "retrieve", "web_search": "web_search", "answer": "answer", "persist": "persist"})
     graph.add_edge("persist", END)
     return graph.compile()
 
@@ -331,6 +388,7 @@ def initial_state(
     query: str,
     document_ids: list[str] | None = None,
     thinking_mode: str = "disabled",
+    source_mode: str = "auto",
 ) -> AgentState:
     return {
         "run_id": f"run_{uuid4().hex[:12]}",
@@ -342,6 +400,8 @@ def initial_state(
         "evidence_status": "not_reported",
         "thinking_mode": thinking_mode,
         "document_ids": document_ids,
+        "source_mode": source_mode,
+        "web_fallback_used": False,
         "retry_count": 0,
         "started_at": time.perf_counter(),
         "events": [],

@@ -102,7 +102,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.post("/api/chat", response_model=ChatResponse)
     def chat(payload: ChatRequest, _: None = Depends(require_api_key)):
         service: ResearchFlowService = app.state.service
-        result = service.chat(payload.query, payload.session_id, payload.document_ids, payload.thinking_mode)
+        result = service.chat(
+            payload.query,
+            payload.session_id,
+            payload.document_ids,
+            payload.thinking_mode,
+            payload.source_mode,
+        )
         return ChatResponse(
             run_id=result["run_id"],
             session_id=result["session_id"],
@@ -134,6 +140,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                     payload.session_id,
                     payload.document_ids,
                     payload.thinking_mode,
+                    payload.source_mode,
                 ):
                     event_name = str(packet.get("type", "status"))
                     data = {key: value for key, value in packet.items() if key != "type"}

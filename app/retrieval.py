@@ -13,6 +13,7 @@ from app.config import Settings
 from app.db import Database
 from app.ingestion import TextBlock
 from app.reranking import BGEReranker, Reranker
+from app.vector_index import FaissVectorIndex
 
 
 TOKEN_PATTERN = re.compile(r"[a-zA-Z0-9_]+|[\u4e00-\u9fff]")
@@ -220,12 +221,6 @@ def build_reranker(settings: Settings, allow_cpu: bool = False) -> Reranker | No
     return BGEReranker(settings.reranker_model, settings.reranker_cache_dir, settings.reranker_device)
 
 
-def cosine(left: list[float], right: list[float]) -> float:
-    if not left or not right or len(left) != len(right):
-        return 0.0
-    return sum(a * b for a, b in zip(left, right))
-
-
 def bm25_scores(query_counts: Counter[str], tokenized_documents: list[list[str]]) -> list[float]:
     """Compute one BM25 field independently so metadata can stay explainable."""
     if not tokenized_documents:
@@ -304,6 +299,11 @@ class HybridRetriever:
         self.embeddings = embeddings
         self.reranker = reranker
         self.reranker_candidates = max(1, reranker_candidates)
+        self.vector_index = FaissVectorIndex()
+        self.rebuild_vector_index()
+
+    def rebuild_vector_index(self) -> None:
+        self.vector_index.rebuild(self.db.list_chunks())
 
     def ingest(
         self,
@@ -324,6 +324,7 @@ class HybridRetriever:
                 for position, (record, vector) in enumerate(zip(records, vectors))
             ),
         )
+        self.rebuild_vector_index()
         return document_id, count
 
     def select_document_scope(self, query: str, catalog: list[dict]) -> list[str] | None:
@@ -368,7 +369,10 @@ class HybridRetriever:
         """
         if strategy not in {"lexical", "dense", "hybrid"}:
             raise ValueError("strategy must be lexical, dense, or hybrid")
-        chunks = self.db.list_chunks()
+        all_chunks = self.db.list_chunks()
+        if self.vector_index.size != len(all_chunks):
+            self.vector_index.rebuild(all_chunks)
+        chunks = all_chunks
         if document_ids is not None:
             allowed = set(document_ids)
             chunks = [chunk for chunk in chunks if chunk["document_id"] in allowed]
@@ -405,13 +409,24 @@ class HybridRetriever:
         ]
 
         query_vector = self.embeddings.embed_query(query)
-        vector_scores = [cosine(query_vector, chunk["embedding"]) for chunk in chunks]
+        dense_candidate_limit = min(
+            self.vector_index.size,
+            max(top_k, self.reranker_candidates, 64),
+        )
+        vector_score_by_chunk = dict(
+            self.vector_index.search(query_vector, top_k=dense_candidate_limit)
+        )
+        vector_scores = [vector_score_by_chunk.get(chunk["id"], -1.0) for chunk in chunks]
         lexical_rank = sorted(range(n_docs), key=lambda i: lexical_scores[i], reverse=True)
-        vector_rank = sorted(range(n_docs), key=lambda i: vector_scores[i], reverse=True)
+        vector_rank = sorted(
+            (i for i, chunk in enumerate(chunks) if chunk["id"] in vector_score_by_chunk),
+            key=lambda i: vector_scores[i],
+            reverse=True,
+        )
         lexical_position = {index: rank for rank, index in enumerate(lexical_rank, start=1)}
         vector_position = {index: rank for rank, index in enumerate(vector_rank, start=1)}
         fused = [
-            1 / (60 + lexical_position[i]) + 1 / (60 + vector_position[i])
+            1 / (60 + lexical_position[i]) + 1 / (60 + vector_position.get(i, n_docs + 1))
             for i in range(n_docs)
         ]
         scores = {

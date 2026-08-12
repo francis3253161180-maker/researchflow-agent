@@ -1,15 +1,15 @@
 # ResearchFlow MCP 集成手册
 
-本文说明 ResearchFlow 中 MCP 的真实作用、运行方式与代码边界。MCP 是让 Host 标准化发现和调用外部能力的协议，不是万能 Agent 框架。
+本文说明 ResearchFlow 中 MCP 的真实作用、运行方式与代码边界。MCP 是让 Host 标准化发现和调用外部能力的协议，不是万能 Agent 框架。项目同时实现 MCP Server（向外提供本地知识库能力）与 MCP Client（调用外部网络搜索）。
 
 ## 1. 这个项目里的 MCP 做了什么
 
 ```mermaid
 sequenceDiagram
     participant H as MCP Host<br/>Claude Desktop / Cursor / other Agent
-    participant C as MCP Client
+    participant C as Host MCP Client
     participant S as ResearchFlow MCP Server<br/>app/mcp_server.py
-    participant R as Hybrid Retriever<br/>BM25 + Vector + RRF
+    participant R as Hybrid Retriever<br/>BM25 + FAISS + RRF
     participant D as SQLite
 
     H->>C: 需要查询本地科研文档
@@ -29,7 +29,8 @@ sequenceDiagram
 
 - **FastAPI**：面向浏览器、REST API 和 Web UI。
 - **LangGraph**：面向 ResearchFlow 内部的状态、路由、有限重试和回答校验。
-- **MCP Server**：面向外部 Agent Host，以统一协议暴露工具和资源。
+- **MCP Server**：面向外部 Agent Host，以统一协议暴露本地检索和资源。
+- **MCP Client**：由 ResearchFlow 内部在网络路由时启动外部搜索 MCP Server 并调用其工具；LangGraph 只负责路由和状态流，不承担搜索协议实现。
 - **SQLite / Retriever**：两种入口共享的本地数据与检索能力。
 
 ## 2. 已实现的 Tools 与 Resource
@@ -38,10 +39,9 @@ sequenceDiagram
 | --- | --- | --- | --- | --- |
 | Tool | `search_research_documents` | `query`, `top_k` | chunk ID、文档、页码、章节、分数、原文片段 | 外部 Agent 能检索本地论文并获得可追溯证据 |
 | Tool | `get_citation_context` | `chunk_id` | 精确对应的原始 chunk 与 provenance | 防止再次搜索后引用换了证据 |
-| Tool | `calculate_expression` | `expression` | 受 AST 限制的计算结果 | 确定性计算不交给 LLM 心算 |
 | Resource | `researchflow://documents` | 无 | 当前文档库存与运行指标 | 让 Host 读取稳定、只读的上下文 |
 
-`top_k` 被限制在 1–8，避免一次工具调用把过多未筛选文档塞进上下文。`get_citation_context` 不重新检索，而是在 SQLite 中按 ID 精确读取，这是可追溯引用的关键边界。
+`top_k` 被限制在 1–8，避免一次工具调用把过多未筛选文档塞进上下文。`get_citation_context` 不重新检索，而是在 SQLite 中按 ID 精确读取，这是可追溯引用的关键边界。此前的示例计算工具已移除，避免把与科研文档 RAG 无关的普通计算节点包装成核心 Agent 能力。
 
 ## 3. 启动与验证
 
@@ -50,7 +50,7 @@ python -m pip install -e ".[dev]"
 .\.venv\Scripts\python.exe -m app.mcp_server
 ```
 
-`stdio` 会把 JSON-RPC 协议写到标准输出，因此不要在同一终端期待普通日志。项目自动化验证覆盖工具注册、混合检索、按 chunk ID 回查、Resource 读取、安全计算，以及独立 MCP 客户端对 `stdio` Server 的初始化、工具发现和实际调用：
+`stdio` 会把 JSON-RPC 协议写到标准输出，因此不要在同一终端期待普通日志。项目自动化验证覆盖工具注册、混合检索、按 chunk ID 回查、Resource 读取，以及独立 MCP 客户端对 `stdio` Server 的初始化、工具发现和实际调用。另有独立的网络搜索 MCP fixture，验证内部 MCP Client 的实际 stdio 握手、工具调用和结构化结果归一化：
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest
@@ -77,12 +77,12 @@ MCP Server 读取 `RESEARCHFLOW_DB_PATH`，应与 FastAPI 服务使用同一数�
 }
 ```
 
-先使用 Web UI 或 REST API 导入论文，再让 Host 连接 MCP Server。连接后，Host 应能列出三个 Tools 和一个 Resource；先调用检索工具，再使用返回的 `chunk_id` 调用 `get_citation_context` 完成一次核验。
+先使用 Web UI 或 REST API 导入论文，再让 Host 连接 MCP Server。连接后，Host 应能列出两个 Tools 和一个 Resource；先调用检索工具，再使用返回的 `chunk_id` 调用 `get_citation_context` 完成一次核验。
 
 ## 5. 安全和生产边界
 
 - `stdio` 适合本机可信 Host，不等同于公开网络服务。
-- Server 当前只提供只读检索、引用读取和计算；不通过 MCP 开放上传或删除知识库的高风险能力。
+- Server 当前只提供只读检索和引用读取；不通过 MCP 开放上传或删除知识库的高风险能力。
 - 文档内容是**不可信数据**，不是系统指令；Host 应把检索文本作为证据，不执行其中的提示注入文字。
 - 公网部署应使用 Streamable HTTP、身份认证、最小权限、审计日志、限流和超时；V1 不应宣称已实现这些生产级控制。
 
@@ -114,4 +114,4 @@ Host 是承载用户交互和模型的应用；Client 是 Host 中与一个 MCP 
 
 ## 8. 90 秒项目表达
 
-> ResearchFlow 是一个本地部署的科研文档 Agent。我用 FastAPI 提供 Web 和 REST API，用 LangGraph 管理检索、工具路由、引用校验和有限重试；文档侧采用 BM25、向量检索与 RRF，并把页码、章节和 chunk ID 保存下来。为了让外部 AI Host 也能安全复用本地知识库，我实现了独立 MCP Server，暴露混合检索、按 chunk ID 的精确引用回查、安全计算和文档 Resource。MCP 解决跨进程工具发现和 schema 对齐，LangGraph 仍负责应用内部的状态编排。项目对 MCP 的工具发现和 stdio 调用做了端到端测试。
+> ResearchFlow 是一个本地部署的科研文档 Agent。我用 FastAPI 提供 Web 和 REST API，用 LangGraph 管理本地、网络与混合来源的路由、引用校验和有限重试；文档侧采用 BM25、FAISS 向量检索与 RRF，并把页码、章节和 chunk ID 保存下来。为了让外部 AI Host 安全复用本地知识库，我实现了 MCP Server，暴露混合检索、按 chunk ID 的精确引用回查和文档 Resource；同时用 MCP Client 调用外部网络搜索，并把 URL 作为证据保存。MCP 解决跨进程工具发现和 schema 对齐，LangGraph 仍负责应用内部的状态编排。项目对两类 stdio 调用都做了端到端测试。

@@ -231,3 +231,18 @@ def test_explicit_document_scope_excludes_unselected_sources(tmp_path):
     assert results
     assert all(result.document_id == original_id for result in results)
     assert all(result.title == "original-review" for result in results)
+
+
+def test_faiss_index_rebuilds_from_sqlite_and_tracks_deletion(tmp_path):
+    settings = Settings(db_path=str(tmp_path / "faiss.db"))
+    service = ResearchFlowService(settings)
+    first_id, first_count = service.ingest("first", "test", "FAISS indexes persisted chunk embeddings for semantic retrieval.")
+    service.ingest("second", "test", "SQLite stores documents, chunks, sessions, traces, and vectors.")
+
+    assert service.retriever.vector_index.size == service.db.chunk_count() == first_count + 1
+    restarted = ResearchFlowService(settings)
+    assert restarted.retriever.vector_index.size == restarted.db.chunk_count()
+    assert restarted.retriever.search("semantic retrieval", strategy="dense")[0].title == "first"
+
+    assert restarted.delete_document(first_id) is True
+    assert restarted.retriever.vector_index.size == restarted.db.chunk_count() == 1

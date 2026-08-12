@@ -1,8 +1,8 @@
 """MCP adapter for ResearchFlow's local research-document capabilities.
 
 The FastAPI application remains the human-facing REST/Web surface. This module
-runs separately over MCP stdio so desktop hosts can call the same retrieval,
-citation-verification, and deterministic-calculation capabilities.
+runs separately over MCP stdio so desktop hosts can call the same retrieval
+and citation-verification capabilities.
 """
 
 from __future__ import annotations
@@ -13,7 +13,6 @@ from mcp.server.mcpserver import MCPServer
 
 from app.config import Settings
 from app.service import ResearchFlowService
-from app.tools import calculate
 
 
 def _citation(result: Any) -> dict[str, Any]:
@@ -80,15 +79,6 @@ def create_mcp_server(settings: Settings | None = None) -> MCPServer:
         if chunk is None:
             raise ValueError(f"citation chunk not found: {normalized}")
         return {"citation": chunk}
-
-    @server.tool(
-        title="Calculate safely",
-        description="Evaluate a simple arithmetic expression without arbitrary code execution.",
-        structured_output=True,
-    )
-    def calculate_expression(expression: str) -> dict[str, str]:
-        """Reuse ResearchFlow's AST-restricted calculator for deterministic arithmetic."""
-        return {"result": calculate(expression)}
 
     @server.resource(
         "researchflow://documents",

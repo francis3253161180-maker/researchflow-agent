@@ -18,10 +18,11 @@ ResearchFlow 将这些要求拆成可观察、可测试的组件：文档解析�
 | --- | --- | --- | --- |
 | FastAPI | `app/main.py` | 文件上传、聊天、会话/turn 恢复、指标与 run 查询 API；可选 API Key | 不承担复杂业务编排 |
 | Ingestion | `app/ingestion.py` | 解析 PDF/DOCX/MD/TXT，保留页码/多级小节元数据 | 不把扫描件 PDF 或 DOCX 渲染页码伪装成可靠原生结构 |
-| Retrieval | `app/retrieval.py` | 分块、词法检索、向量检索、RRF 融合 | 不在 V1 引入独立向量数据库 |
+| Retrieval | `app/retrieval.py` + `app/vector_index.py` | 分块、词法检索、FAISS 向量 Top-K、RRF 融合 | 不在 V1 引入独立向量数据库 |
 | LangGraph | `app/graph.py` | 显式状态流转、条件路由、最多一次检索重试 | 不把每个问题都拆成多 Agent |
 | LLM | `app/llm.py` | 离线确定性回答或 OpenAI-compatible / DeepSeek 生成；单轮可覆盖 thinking mode | 不将密钥或内部 reasoning 写进仓库或前端 |
-| SQLite | `app/db.py` | 保存文档、分块、会话、turn、消息、引用、事件、错误类型和延迟 | 不作为高并发生产数据库 |
+| SQLite | `app/db.py` | 持久化真源：文档、分块、原始向量、会话、turn、消息、引用、事件、错误类型和延迟 | 不作为高并发生产数据库 |
+| MCP client | `app/web_search.py` | 调用外部网络搜索并归一化 URL 证据 | 默认关闭；不把第三方网络可用性当作本地 RAG 能力 |
 | Web UI | `app/static/` | 会话切换、上传、多轮提问、逐轮来源和可展开轨迹 | 不取代完整运营后台 |
 
 ## 3. 一次请求的执行流程
@@ -32,7 +33,7 @@ sequenceDiagram
     participant A as FastAPI
     participant G as LangGraph
     participant R as Hybrid Retrieval
-    participant T as Safe Calculator
+    participant W as Web search MCP Server
     participant L as LLM / Offline Answerer
     participant D as SQLite
 
@@ -45,9 +46,9 @@ sequenceDiagram
         G->>G: session-aware query rewrite
         G->>R: BM25 + vector + RRF
         R-->>G: chunks with source metadata
-    else 数学表达式
-        G->>T: constrained expression evaluation
-        T-->>G: tool result
+    else 网络或混合来源
+        G->>W: MCP tools/call tavily-search
+        W-->>G: URL evidence
     else 语料为空
         G->>G: direct constrained response
     end
@@ -68,7 +69,7 @@ sequenceDiagram
 
 ### 关键状态与约束
 
-- `route` 只选择知识检索、计算工具或空语料处理，不让模型任意调用本地能力。
+- `route` 只选择本地、网络、混合或空语料路径，不让模型任意调用工具；自动模式仅对时效性问题优先网络，本地证据连续不相关时才回退一次网络。
 - 知识型回答必须带有检索证据及 `[n]` 引用；校验失败时只允许一次扩展查询，避免无限循环。
 - 运行事件、错误类型和延迟写入 SQLite。对外只返回脱敏后的异常类别，避免意外暴露密钥、路径或上游响应内容。
 - 一个 `session_id` 是一段对话；一次用户提交及其有限重试对应一个 `run_id`。网页恢复的是同一会话下按时间排序的 runs，不会把不同会话混在一个聊天记录中。
@@ -110,7 +111,7 @@ V1 的词法检索与向量检索各有价值：前者对专业术语、文件�
 
 ## 6. 已验证的内容与验证边界
 
-- `pytest` 覆盖 61 项单元、API 与 MCP 端到端测试，包括上传/删除、PDF 跨页标题栈、DOCX 多级 Heading/表格继承、页码元数据、结构化引用校验与相关性状态优先级、会话/turn 恢复、per-run thinking mode、只使用已验证 turn 的会话感知 Query Rewrite、SSE 节点状态与最终结果、首轮模型标题、异常脱敏、轨迹持久化以及 stdio 工具发现/调用。
+- `pytest` 覆盖 67 项单元、API 与 MCP 端到端测试，包括上传/删除、PDF 跨页标题栈、DOCX 多级 Heading/表格继承、页码元数据、FAISS 重建、结构化引用校验与相关性状态优先级、会话/turn 恢复、per-run thinking mode、只使用已验证 turn 的会话感知 Query Rewrite、SSE 节点状态与最终结果、首轮模型标题、异常脱敏、轨迹持久化、MCP Server 工具发现/调用和 MCP Client 网络搜索 stdio 调用。
 - `scripts/run_eval.py` 有 8 条受控回归样例，并已在 hash 和 FastEmbed 两种后端下跑通检索命中、引用生成与校验。
 - GitHub Actions 在 push/PR 时执行测试和 Docker 镜像构建。
 
@@ -120,7 +121,7 @@ V1 的词法检索与向量检索各有价值：前者对专业术语、文件�
 
 | 当前 V1 | 触发条件 | 合理的下一步 |
 | --- | --- | --- |
-| SQLite + 应用内扫描 | 文档量和并发明显增长 | PostgreSQL + pgvector / 专用向量数据库；异步任务队列 |
+| SQLite + FAISS 单机索引 | 文档量和并发明显增长 | PostgreSQL + pgvector / Milvus 等专用向量数据库；异步任务队列 |
 | 文本层 PDF | 扫描件、复杂双栏和图表成为主要输入 | OCR、版面分析与人工抽样质检 |
 | 无 reranker | 公开评测证明 top-K 精度不足 | 先加入可开关 reranker，再用 Recall@K/nDCG 判断收益 |
 | 单轮工具路由 | 多步骤研究工作流有真实需求 | 增加受控的规划、checkpointer 与人工审批点 |

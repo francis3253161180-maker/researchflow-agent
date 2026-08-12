@@ -10,10 +10,11 @@ from app.graph import build_graph, initial_state
 from app.ingestion import ParsedDocument
 from app.llm import LLMClient
 from app.retrieval import HybridRetriever, build_embedding_provider, build_reranker
+from app.web_search import WebSearchClient, build_web_search
 
 
 class ResearchFlowService:
-    def __init__(self, settings: Settings):
+    def __init__(self, settings: Settings, web_search: WebSearchClient | None = None):
         self.settings = settings
         settings.ensure_directories()
         self.db = Database(settings.db_path)
@@ -28,11 +29,14 @@ class ResearchFlowService:
             settings.reranker_candidates,
         )
         self.llm = LLMClient(settings)
+        self.web_search = web_search or build_web_search(settings)
         self.graph = build_graph(
             self.db,
             self.retriever,
             self.llm,
+            self.web_search,
             retrieval_top_k=max(1, min(settings.retrieval_top_k, 8)),
+            web_search_max_results=max(1, min(settings.web_search_max_results, 10)),
         )
 
     def ingest(self, title: str, source: str, content: str) -> tuple[str, int]:
@@ -52,13 +56,19 @@ class ResearchFlowService:
         return self.db.list_documents()
 
     def delete_document(self, document_id: str) -> bool:
-        return self.db.delete_document(document_id)
+        deleted = self.db.delete_document(document_id)
+        if deleted:
+            self.retriever.rebuild_vector_index()
+        return deleted
 
     def metrics(self) -> dict:
         return {
             "chunks": self.db.chunk_count(),
             "llm_configured": self.llm.configured,
             "embedding_provider": self.retriever.embeddings.__class__.__name__,
+            "vector_index": "FAISS IndexFlatIP",
+            "vector_index_size": self.retriever.vector_index.size,
+            "web_search_available": self.web_search.available,
             "reranker_requested": self.settings.reranker_provider,
             "reranker_available": self._available_reranker is not None,
             "reranker_can_start": self.settings.reranker_provider != "none",
@@ -100,12 +110,19 @@ class ResearchFlowService:
         session_id: str | None = None,
         document_ids: list[str] | None = None,
         thinking_mode: str | None = None,
+        source_mode: str = "auto",
     ) -> dict:
         session_id = session_id or f"ses_{uuid4().hex[:12]}"
         effective_thinking = thinking_mode if thinking_mode in {"enabled", "disabled"} else self.llm.thinking
         self.db.ensure_session(session_id)
         result = self.graph.invoke(
-            initial_state(session_id, query, document_ids=document_ids, thinking_mode=effective_thinking),
+            initial_state(
+                session_id,
+                query,
+                document_ids=document_ids,
+                thinking_mode=effective_thinking,
+                source_mode=source_mode,
+            ),
             {"recursion_limit": 12},
         )
         return self._finish_chat(session_id, query, result)
@@ -116,6 +133,7 @@ class ResearchFlowService:
         session_id: str | None = None,
         document_ids: list[str] | None = None,
         thinking_mode: str | None = None,
+        source_mode: str = "auto",
     ) -> Iterator[dict[str, Any]]:
         """Stream node-level progress, then emit the same final result as ``chat``.
 
@@ -126,13 +144,19 @@ class ResearchFlowService:
         session_id = session_id or f"ses_{uuid4().hex[:12]}"
         effective_thinking = thinking_mode if thinking_mode in {"enabled", "disabled"} else self.llm.thinking
         self.db.ensure_session(session_id)
-        state = initial_state(session_id, query, document_ids=document_ids, thinking_mode=effective_thinking)
+        state = initial_state(
+            session_id,
+            query,
+            document_ids=document_ids,
+            thinking_mode=effective_thinking,
+            source_mode=source_mode,
+        )
         final_state: dict[str, Any] = dict(state)
         completed_messages = {
             "route": "已确定执行路径。",
             "rewrite": "检索问题已准备完成。",
             "retrieve": "候选证据已找回。",
-            "tool": "工具结果已获得。",
+            "web_search": "网络搜索结果已获得。",
             "answer": "回答草稿已生成。",
             "verify": "引用校验已完成。",
             "persist": "运行记录已保存。",

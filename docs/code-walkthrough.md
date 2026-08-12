@@ -18,7 +18,7 @@ create_app
 1. 创建数据和模型缓存目录；
 2. 初始化 `Database`；
 3. 选择 embedding provider 并创建 `HybridRetriever`；
-4. 创建 `LLMClient`，编译 LangGraph。
+4. 创建 `LLMClient` 与可选 `MCPWebSearchClient`，编译 LangGraph。
 
 工程含义：对象在 lifespan 中创建一次，而不是每个请求重新加载 FastEmbed、重新建表和重新编译图。
 
@@ -31,6 +31,7 @@ class ChatRequest(BaseModel):
     query: str = Field(min_length=1, max_length=4000)
     session_id: str | None = None
     document_ids: list[str] | None = None
+    source_mode: Literal["auto", "local", "web", "hybrid"] = "auto"
 ```
 
 `document_ids` 是可选的强约束：为空时检索全库；用户在界面勾选文档后，检索层会在打分前排除其他文档。它不用于默认自然问法，也不替代混合检索和 BGE 段落重排。
@@ -63,10 +64,11 @@ class ChatRequest(BaseModel):
 | `session_id` | 多轮消息所属会话 |
 | `thinking_mode` | 本轮 DeepSeek 生成策略：`disabled` / `enabled` |
 | `query` | 原始用户问题 |
-| `route` | `rag`、`tool` 或 `direct` |
+| `source_mode` | 用户请求的来源模式：`auto`、`local`、`web`、`hybrid` |
+| `route` | 实际路径：`rag`、`web`、`hybrid` 或 `direct` |
 | `route_steps` | 面向 UI/轨迹的执行路径说明 |
 | `retrieved` | 检索证据 chunks |
-| `tool_result` | 安全计算结果 |
+| `web_fallback_used` | 本地证据连续不相关时是否回退网络搜索 |
 | `answer` | 最终或待校验回答 |
 | `citations` | 最多前三条返回引用 |
 | `verified` | 当前校验结果 |
@@ -82,12 +84,15 @@ class ChatRequest(BaseModel):
 当前路由是可解释的规则路由，不是 LLM 自主规划：
 
 ```text
-匹配“数字 运算符 数字” -> tool
-否则知识库有 chunk        -> rag
-否则                       -> direct
+source_mode=local          -> 本地 rag（空语料时 direct）
+source_mode=web            -> web
+source_mode=hybrid         -> 先本地、再网络，合并证据
+auto + “最新/今天/实时”等   -> web（仅在已配置 MCP 搜索时）
+auto + 有本地语料           -> rag
+auto + 无本地语料           -> web 或 direct
 ```
 
-优点：确定、便于测试、不会让模型任意调用本地工具。局限：自然语言数学题和更复杂意图可能误判，未来需要分类器或受控的结构化模型路由。
+优点：确定、便于测试、不会让模型任意调用工具。局限：时效性词表只是保守启发式，未来可用受控分类器或结构化模型路由替代。
 
 ## 6. rewrite 与 retrieve 节点
 
@@ -95,16 +100,9 @@ RAG 路径先执行 `rewrite_node`：它只取同一会话最近 3 个、`verifi
 
 这不是基于文档标题、章节或问题映射表的硬编码。改写输出、原因和实际检索 Query 会写进 run，便于检查其是否真的生效。
 
-## 7. tool 节点
+## 7. web_search 节点
 
-`app/tools.py` 不使用 `eval`，而是：
-
-1. 从问题中提取算术表达式；
-2. 使用 `ast.parse(..., mode="eval")`；
-3. 只递归执行允许的数字、二元运算和一元运算；
-4. 限制幂指数绝对值不超过 10。
-
-这体现了工具边界：Agent 不应该把任意字符串交给 Python 执行。
+`web_search_node` 不把 LangGraph 当作搜索引擎：它通过 `MCPWebSearchClient` 调用已配置的外部 MCP Server（默认示例为 Tavily），将结构化结果标准化为带 URL 的证据块。`hybrid` 路径会保留本地 chunk 与网络 URL 的来源边界；`web` 路径未配置或调用失败时，返回“未获得可核验网页证据”，而不是编造答案。项目的 MCP Server 仍独立向外部 Host 提供本地检索与精确引用回查。
 
 ## 8. answer 节点
 
@@ -123,8 +121,7 @@ RAG 路径先执行 `rewrite_node`：它只取同一会话最近 3 个、`verifi
 
 | route | 当前标准 |
 | --- | --- |
-| `rag` | 依次判断 `no_evidence`、`evidence_not_relevant`、`citation_missing` / `citation_out_of_range`、`citation_indices_valid` |
-| `tool` | `tool_result` 非空 |
+| `rag` / `web` / `hybrid` | 依次判断 `no_evidence`、`evidence_not_relevant`、`citation_missing` / `citation_out_of_range`、`citation_indices_valid` |
 | `direct` | answer 非空 |
 
 重要边界：当前 RAG 校验会检测没有证据、没有 `[n]` 和 `[n]` 编号越界；但它仍没有逐句判断答案是否被证据支持，也不能判断编号有效的引用是否真正支持某个主张。
@@ -170,16 +167,16 @@ UploadFile
 
 ## 13. 检索链路
 
-`HybridRetriever.search` 当前会把 SQLite 中的全部 chunks 载入应用：
+`HybridRetriever.search` 把 SQLite 中的分块元数据载入应用，并使用可从 SQLite 重建的 FAISS 索引完成向量 Top-K：
 
 1. 字符/英文词 tokenization；
 2. 计算 BM25 风格词法分数；
-3. 对 query 生成向量并计算点积；
+3. 对 query 向量归一化并通过 FAISS `IndexFlatIP` 取候选 Top-K；
 4. 分别得到两个排名；
 5. 用 RRF 融合；
 6. 返回 top-4。
 
-`HashEmbedding` 在代码中明确做了 L2 归一化；FastEmbed 和远程 embedding 的范数取决于具体后端。当前名为 `cosine` 的函数实际执行点积，没有在 provider 边界统一归一化。因此只有输入已归一化时它才等价于余弦相似度，这是一个应能主动指出的改进点。
+FAISS 在索引与查询边界统一做 L2 归一化，因此内积等价于余弦相似度。SQLite 保存原始向量 JSON 和 provenance，FAISS 只保存可重建的检索结构与 chunk 映射；更换 embedding provider/model 后仍需要重导入文档。
 
 ## 14. 数据库
 
